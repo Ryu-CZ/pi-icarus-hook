@@ -1,6 +1,6 @@
 # pi-icarus-hook
 
-Thin Pi extension that binds local Pi lifecycle events to local Hermes/Icarus Python hooks.
+Pi lifecycle hooks for local Icarus.
 
 `pi-icarus-hook` does not reimplement Fabric recall, Qdrant search, SQLite search, decision capture, session scoring, or extraction. It keeps one persistent Python worker alive and calls Icarus directly.
 
