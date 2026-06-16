@@ -1,0 +1,57 @@
+{
+  "name": "pi-icarus-hook",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Thin Pi lifecycle bridge to local Hermes/Icarus Memory OS hooks and tools",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "files": [
+    "dist/src",
+    "src",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "keywords": [
+    "pi",
+    "pi-extension",
+    "icarus",
+    "hermes",
+    "memory-os"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test dist/tests/*.test.js",
+    "verify": "npm run test",
+    "smoke:icarus": "npm run build && node --test dist/tests/bridge-smoke.test.js",
+    "prepack": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/Ryu-CZ/pi-icarus-hook.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Ryu-CZ/pi-icarus-hook/issues"
+  },
+  "homepage": "https://github.com/Ryu-CZ/pi-icarus-hook#readme",
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
