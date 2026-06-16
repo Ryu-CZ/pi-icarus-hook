@@ -1,6 +1,6 @@
 # pi-icarus-hook
 
-Pi lifecycle hooks for local Icarus.
+Binds Pi to an existing Hermes agent's Icarus memory system.
 
 `pi-icarus-hook` does not reimplement Fabric recall, Qdrant search, SQLite search, decision capture, session scoring, or extraction. It keeps one persistent Python worker alive and calls Icarus directly.
 
