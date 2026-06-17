@@ -10,15 +10,15 @@ export { loadConfig } from "./config.js";
 export { CONFIG_SCHEMA, configInspection, configSnippet, registerConfigIntrospection } from "./config-schema.js";
 export { bindHooks } from "./hooks.js";
 export { registerTools } from "./tools.js";
-export type { HookResult, PiApi, PiBridgeConfig, PiMessage, ToolDefinition } from "./types.js";
+export type { HookResult, IcarusHookControl, PiApi, PiBridgeConfig, PiContext, PiMessage, ToolDefinition } from "./types.js";
 
 export default function extension(pi: PiApi): void {
   const config = loadConfig();
   const bridge = new IcarusBridge(config);
 
-  if (config.bindHooks) bindHooks(pi, bridge, config);
-  else pi.on("session_shutdown", () => bridge.close());
-  registerConfigIntrospection(pi, config, config.registerTools);
+  const hookControl = config.bindHooks ? bindHooks(pi, bridge, config) : undefined;
+  if (!config.bindHooks) pi.on("session_shutdown", () => bridge.close());
+  registerConfigIntrospection(pi, config, config.registerTools, hookControl);
   if (config.registerTools) registerTools(pi, bridge, config.registerAdminTools);
 
   process.once("exit", () => bridge.close());

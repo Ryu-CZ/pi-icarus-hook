@@ -24,6 +24,7 @@ const IGNORED_PI_ENV_KEYS = [
   "PI_ICARUS_HOOK_TOOLS",
   "PI_ICARUS_HOOK_ADMIN_TOOLS",
   "PI_ICARUS_HOOK_CONTEXT_DISPLAY",
+  "PI_ICARUS_HOOK_FOOTER_STATUS",
   "PI_ICARUS_HOOK_TIMEOUT_MS",
 ];
 
@@ -62,6 +63,7 @@ test("loads pi-icarus-hook settings from project .pi/settings.json", async (t) =
       tools: false,
       adminTools: true,
       contextDisplay: true,
+      footerStatus: "🪽 Project Icarus",
       timeoutMs: 1234,
     },
   }), "utf8");
@@ -77,7 +79,31 @@ test("loads pi-icarus-hook settings from project .pi/settings.json", async (t) =
   assert.equal(config.registerTools, false);
   assert.equal(config.registerAdminTools, true);
   assert.equal(config.hiddenDisplay, true);
+  assert.equal(config.footerStatus, "🪽 Project Icarus");
   assert.equal(config.callTimeoutMs, 1234);
+});
+
+test("loads footer status from global Pi settings", async (t) => {
+  const saved = saveEnv();
+  const root = await mkdtemp(join(tmpdir(), "pi-icarus-hook-global-config-"));
+  const agentDir = join(root, "agent");
+  t.after(async () => {
+    restoreEnv(saved);
+    await rm(root, { recursive: true, force: true });
+  });
+  for (const key of ALL_ENV_KEYS) delete process.env[key];
+  process.env.PI_CODING_AGENT_DIR = agentDir;
+
+  await mkdir(agentDir, { recursive: true });
+  await writeFile(join(agentDir, "settings.json"), JSON.stringify({
+    piIcarusHook: {
+      footerStatus: "🪽 Global Icarus",
+    },
+  }), "utf8");
+
+  const config = loadConfig(root);
+
+  assert.equal(config.footerStatus, "🪽 Global Icarus");
 });
 
 test("Pi extension behavior is Pi settings only, not environment variables", async (t) => {
@@ -93,6 +119,7 @@ test("Pi extension behavior is Pi settings only, not environment variables", asy
   process.env.PI_ICARUS_HOOK_TOOLS = "1";
   process.env.PI_ICARUS_HOOK_ADMIN_TOOLS = "1";
   process.env.PI_ICARUS_HOOK_CONTEXT_DISPLAY = "1";
+  process.env.PI_ICARUS_HOOK_FOOTER_STATUS = "env-footer";
   process.env.PI_ICARUS_HOOK_TIMEOUT_MS = "9999";
 
   await mkdir(join(root, ".pi"), { recursive: true });
@@ -103,6 +130,7 @@ test("Pi extension behavior is Pi settings only, not environment variables", asy
       tools: false,
       adminTools: false,
       contextDisplay: false,
+      footerStatus: "settings-footer",
       timeoutMs: 1234,
     },
   }), "utf8");
@@ -114,6 +142,7 @@ test("Pi extension behavior is Pi settings only, not environment variables", asy
   assert.equal(config.registerTools, false);
   assert.equal(config.registerAdminTools, false);
   assert.equal(config.hiddenDisplay, false);
+  assert.equal(config.footerStatus, "settings-footer");
   assert.equal(config.callTimeoutMs, 1234);
 });
 

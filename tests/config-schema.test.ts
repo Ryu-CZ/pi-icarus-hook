@@ -16,12 +16,14 @@ const config: PiBridgeConfig = {
   registerTools: true,
   registerAdminTools: false,
   hiddenDisplay: false,
+  footerStatus: "🪽 Icarus",
   callTimeoutMs: 30000,
 };
 
 test("config schema describes Pi settings and runtime env separately", () => {
   assert.equal(CONFIG_SCHEMA.key, "piIcarusHook");
   assert.equal(CONFIG_SCHEMA.settings.contextDisplay.default, false);
+  assert.equal(CONFIG_SCHEMA.settings.footerStatus.default, "🪽 Icarus");
   assert.equal(CONFIG_SCHEMA.settings.adminTools.default, false);
   assert.equal(CONFIG_SCHEMA.runtimeEnv.ICARUS_DIR.default, "~/.hermes/plugins/icarus");
   assert.ok(!Object.hasOwn(CONFIG_SCHEMA.settings, "ICARUS_DIR"));
@@ -36,6 +38,7 @@ test("config inspection returns effective config and settings snippet", () => {
       adminTools: false,
       timeoutMs: 30000,
       contextDisplay: false,
+      footerStatus: "🪽 Icarus",
     },
   });
 

@@ -1,4 +1,4 @@
-import type { PiApi, PiBridgeConfig } from "./types.js";
+import type { IcarusHookControl, PiApi, PiBridgeConfig, PiContext } from "./types.js";
 
 export interface ConfigSettingSchema {
   type: "boolean" | "number" | "string";
@@ -52,6 +52,12 @@ export const CONFIG_SCHEMA = {
       aliases: ["hiddenDisplay"],
       description: "Show injected Icarus context in the Pi UI instead of hiding it.",
     },
+    footerStatus: {
+      type: "string",
+      default: "🪽 Icarus",
+      aliases: ["statusLabel"],
+      description: "Footer status text shown while ambient Icarus memory hooks are active.",
+    },
   } satisfies Record<string, ConfigSettingSchema>,
   runtimeEnv: {
     ICARUS_DIR: {
@@ -92,6 +98,7 @@ export function configSnippet(config: PiBridgeConfig): Record<string, unknown> {
       adminTools: config.registerAdminTools,
       timeoutMs: config.callTimeoutMs,
       contextDisplay: config.hiddenDisplay,
+      footerStatus: config.footerStatus,
     },
   };
 }
@@ -113,6 +120,7 @@ export function configInspection(config: PiBridgeConfig): Record<string, unknown
       tools: config.registerTools,
       adminTools: config.registerAdminTools,
       contextDisplay: config.hiddenDisplay,
+      footerStatus: config.footerStatus,
       timeoutMs: config.callTimeoutMs,
     },
     settingsSnippet: configSnippet(config),
@@ -124,15 +132,42 @@ function jsonResult(value: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }], details: value };
 }
 
-export function registerConfigIntrospection(pi: PiApi, config: PiBridgeConfig, registerTool: boolean): void {
+function notify(ctx: unknown, message: string, level = "info"): void {
+  const piContext = ctx && typeof ctx === "object" ? ctx as PiContext : {};
+  piContext.ui?.notify?.(message, level);
+}
+
+function hookStatusMessage(hookControl: IcarusHookControl | undefined): string {
+  if (!hookControl) return "Icarus hooks are not registered because hooks are disabled in Pi settings.";
+  return hookControl.isEnabled()
+    ? "Icarus memory hooks are on. This conversation can load and save Icarus memory."
+    : "Icarus memory hooks are off for this Pi session. This conversation will not load or save Icarus memory.";
+}
+
+export function registerConfigIntrospection(pi: PiApi, config: PiBridgeConfig, registerTool: boolean, hookControl?: IcarusHookControl): void {
   pi.registerCommand?.("icarus-hook", {
-    description: "Inspect pi-icarus-hook configuration and settings schema",
+    description: "Toggle whether this Pi session loads and saves Icarus memory",
     handler: async (args: unknown, ctx: unknown) => {
-      const command = typeof args === "string" ? args.trim() : "";
+      const command = typeof args === "string" ? args.trim().toLowerCase().split(/\s+/)[0] : "";
+      if (["", "status", "toggle", "on", "enable", "off", "disable"].includes(command)) {
+        if (!hookControl) {
+          const message = hookStatusMessage(hookControl);
+          notify(ctx, message, command === "status" || command === "off" || command === "disable" ? "info" : "warning");
+          return message;
+        }
+
+        if (command === "" || command === "toggle") hookControl.toggle(ctx);
+        else if (command === "on" || command === "enable") hookControl.setEnabled(true, ctx);
+        else if (command === "off" || command === "disable") hookControl.setEnabled(false, ctx);
+
+        const message = hookStatusMessage(hookControl);
+        notify(ctx, message, "info");
+        return message;
+      }
+
       const payload = command === "schema" ? CONFIG_SCHEMA : configInspection(config);
       const text = JSON.stringify(payload, null, 2);
-      const ui = ctx && typeof ctx === "object" ? (ctx as { ui?: { notify?: (message: string, level?: string) => void } }).ui : undefined;
-      ui?.notify?.(text, "info");
+      notify(ctx, text, "info");
       return text;
     },
   });

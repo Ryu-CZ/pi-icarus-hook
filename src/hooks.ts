@@ -1,5 +1,7 @@
 import type { IcarusBridge } from "./bridge.js";
-import type { HookResult, PiApi, PiBridgeConfig, PiMessage } from "./types.js";
+import type { HookResult, IcarusHookControl, PiApi, PiBridgeConfig, PiContext, PiMessage } from "./types.js";
+
+const FOOTER_STATUS_KEY = "icarus-hook";
 
 function asText(value: unknown): string {
   if (typeof value === "string") return value;
@@ -25,6 +27,18 @@ function eventRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? value as Record<string, unknown> : {};
 }
 
+function piContext(value: unknown): PiContext {
+  return value && typeof value === "object" ? value as PiContext : {};
+}
+
+function setFooterStatus(ctx: unknown, value: string | undefined): void {
+  try {
+    piContext(ctx).ui?.setStatus?.(FOOTER_STATUS_KEY, value);
+  } catch {
+    return;
+  }
+}
+
 function contextMessage(customType: string, content: string, config: PiBridgeConfig): { message: PiMessage } | void {
   if (!content.trim()) return;
   return { message: { customType, content, display: config.hiddenDisplay } };
@@ -38,8 +52,27 @@ function sessionIdFrom(event: Record<string, unknown>, ctx?: Record<string, unkn
   return typeof event.session_id === "string" ? event.session_id : "";
 }
 
-export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfig): void {
+export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfig): IcarusHookControl {
+  let enabled = true;
+  const control: IcarusHookControl = {
+    isEnabled: () => enabled,
+    setEnabled(value, ctx) {
+      enabled = value;
+      setFooterStatus(ctx, enabled ? config.footerStatus : undefined);
+    },
+    toggle(ctx) {
+      enabled = !enabled;
+      setFooterStatus(ctx, enabled ? config.footerStatus : undefined);
+      return enabled;
+    },
+  };
+
   pi.on("session_start", async (event: unknown, ctx: unknown) => {
+    if (!enabled) {
+      setFooterStatus(ctx, undefined);
+      return;
+    }
+    setFooterStatus(ctx, config.footerStatus);
     try {
       const result = await bridge.hook("on_session_start", {
         session_id: sessionIdFrom(eventRecord(event), eventRecord(ctx)),
@@ -51,7 +84,12 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
     }
   });
 
-  pi.on("before_agent_start", async (event: unknown) => {
+  pi.on("before_agent_start", async (event: unknown, ctx: unknown) => {
+    if (!enabled) {
+      setFooterStatus(ctx, undefined);
+      return;
+    }
+    setFooterStatus(ctx, config.footerStatus);
     try {
       const record = eventRecord(event);
       const prompt = asText(record.prompt ?? record.message ?? record.user_message);
@@ -68,6 +106,7 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
   });
 
   pi.on("agent_end", async (event: unknown) => {
+    if (!enabled) return;
     try {
       const record = eventRecord(event);
       const messages = record.messages;
@@ -82,8 +121,9 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
     }
   });
 
-  pi.on("session_shutdown", async (event: unknown) => {
+  pi.on("session_shutdown", async (event: unknown, ctx: unknown) => {
     try {
+      if (!enabled) return;
       const record = eventRecord(event);
       await bridge.hook("on_session_end", {
         session_id: sessionIdFrom(record),
@@ -93,7 +133,10 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
     } catch {
       return;
     } finally {
+      setFooterStatus(ctx, undefined);
       bridge.close();
     }
   });
+
+  return control;
 }

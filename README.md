@@ -8,6 +8,7 @@ Use this when you want Pi to get the same ambient memory behavior Hermes gets fr
 
 - Thin bridge: Pi lifecycle events -> Icarus hooks.
 - Memory is automatic: context is injected before the model answers.
+- Pi footer shows `🪽 Icarus` while ambient memory hooks are active.
 - Normal Fabric tools are enabled by default: write, recall, search, pending, curate, brief, Obsidian init.
 - Admin/training tools are implemented but hidden by default: export, train, eval, switch model, rollback, telemetry, report.
 - Not included: raw Qdrant/Redis/worker controls, ingestion queues, reflection controls, or ground-truth editing.
@@ -29,7 +30,7 @@ User prompt
 
 After the answer, the extension calls Icarus again so useful exchanges can be captured and later persisted.
 
-By default, injected context is hidden from the terminal UI. Set `contextDisplay` in Pi settings if you want to see it while debugging.
+By default, injected context is hidden from the terminal UI. The footer still shows `🪽 Icarus` while the hook is active so users know memory injection and tracing are enabled. Set `contextDisplay` in Pi settings if you want to see the injected context while debugging.
 
 ## Install
 
@@ -96,12 +97,23 @@ Use `piIcarusHook` or `pi-icarus-hook` in Pi settings:
     "tools": true,
     "adminTools": false,
     "timeoutMs": 30000,
-    "contextDisplay": false
+    "contextDisplay": false,
+    "footerStatus": "🪽 Icarus"
   }
 }
 ```
 
-The Pi-specific keys `platform`, `hooks`, `tools`, `adminTools`, `timeoutMs`, and `contextDisplay` are intentionally Pi-settings-only. They are not read from environment variables because they control Pi adapter/UI/tool behavior, not the external Icarus/Hermes runtime.
+To customize the footer label globally, put this in `${PI_CODING_AGENT_DIR:-~/.pi/agent}/settings.json`:
+
+```json
+{
+  "piIcarusHook": {
+    "footerStatus": "🪽 Icarus"
+  }
+}
+```
+
+The Pi-specific keys `platform`, `hooks`, `tools`, `adminTools`, `timeoutMs`, `contextDisplay`, and `footerStatus` are intentionally Pi-settings-only. They are not read from environment variables because they control Pi adapter/UI/tool behavior, not the external Icarus/Hermes runtime.
 
 Pi settings:
 
@@ -113,6 +125,7 @@ Pi settings:
 | `adminTools` / `registerAdminTools` | `false` | Register admin/training tools |
 | `timeoutMs` / `callTimeoutMs` | `30000` | Timeout for each Icarus worker call |
 | `contextDisplay` / `hiddenDisplay` | `false` | Show injected context instead of hiding it |
+| `footerStatus` / `statusLabel` | `🪽 Icarus` | Footer text shown while ambient hooks are active |
 
 Typical variables:
 
@@ -139,7 +152,9 @@ The package ships `README.md` in the npm package (`package.json` includes it in 
 
 For machine-readable inspection, the extension also exports `CONFIG_SCHEMA` from `src/config-schema.ts` and exposes two runtime surfaces:
 
-- Slash command: `/icarus-hook` — prints the current effective config, schema, and a settings JSON snippet.
+- Slash command: `/icarus-hook` — toggles whether the current Pi session loads and saves Icarus memory.
+- Memory hook controls: `/icarus-hook off`, `/icarus-hook on`, and `/icarus-hook status` control or inspect whether conversation memory is remembered.
+- Inspection: `/icarus-hook config` prints the current effective config and settings snippet; `/icarus-hook schema` prints the settings schema.
 - Tool: `icarus_hook_config` — read-only tool available when normal tools are enabled. It returns the same schema/effective config so the Pi agent can inspect how the extension is configured.
 
 The introspection surfaces are intentionally read-only. They can explain or suggest settings, but they do not mutate `.pi/settings.json` or `~/.pi/agent/settings.json`.
@@ -160,6 +175,10 @@ These run automatically when Pi emits lifecycle events:
 | `session_shutdown` | `icarus.hooks.on_session_end()` | Scores and persists the session, then closes the worker |
 
 The hook path is the recommended default. The model does not need to remember to call a tool before every answer; memory is injected as infrastructure.
+
+When hooks are enabled, Pi's footer shows `🪽 Icarus` so the user can see that memory injection and tracing are active.
+
+To stop this conversation from being remembered, run `/icarus-hook` to toggle memory hooks off, or `/icarus-hook off` to force them off. While off, the extension does not call Icarus for startup context, per-turn memory loading, post-answer memory saving, or session-end tracing. Run `/icarus-hook` again, or `/icarus-hook on`, to let the same Pi session load and save Icarus memory again.
 
 ### Normal Fabric tools, enabled by default
 

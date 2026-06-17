@@ -46,6 +46,7 @@ async function withBridge(t: test.TestContext): Promise<{ bridge: IcarusBridge; 
     registerTools: true,
     registerAdminTools: false,
     hiddenDisplay: false,
+    footerStatus: "🪽 Icarus",
     callTimeoutMs: 10000,
   };
   const bridge = new IcarusBridge(config);
