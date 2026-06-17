@@ -14,12 +14,16 @@
     "CHANGELOG.md"
   ],
   "keywords": [
+    "pi-package",
     "pi",
     "pi-extension",
     "icarus",
     "hermes",
     "memory-os"
   ],
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",

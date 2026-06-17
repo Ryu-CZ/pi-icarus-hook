@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Add missing `pi-package` npm keyword and `peerDependencies` so the package appears in Pi's catalog listing.
+
 ## [0.4.0] - 2026-06-17
 
 ### Added
