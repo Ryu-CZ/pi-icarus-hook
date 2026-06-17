@@ -31,3 +31,29 @@ test("extension registers hook bindings and normal fabric tools", () => {
   assert.ok(tools.includes("fabric_recall"));
   assert.ok(!tools.includes("fabric_train"));
 });
+
+test("extension closes bridge on shutdown when hook bindings are disabled", () => {
+  const events: string[] = [];
+  const oldEnv = {
+    PI_ICARUS_HOOK_ADMIN_TOOLS: process.env.PI_ICARUS_HOOK_ADMIN_TOOLS,
+    PI_ICARUS_HOOK_TOOLS: process.env.PI_ICARUS_HOOK_TOOLS,
+    PI_ICARUS_HOOK_HOOKS: process.env.PI_ICARUS_HOOK_HOOKS,
+  };
+  process.env.PI_ICARUS_HOOK_ADMIN_TOOLS = "0";
+  process.env.PI_ICARUS_HOOK_TOOLS = "0";
+  process.env.PI_ICARUS_HOOK_HOOKS = "0";
+
+  try {
+    extension({
+      on(event, _handler) { events.push(event); },
+      registerTool(_tool) {},
+    });
+  } finally {
+    for (const [key, value] of Object.entries(oldEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+
+  assert.deepEqual(events, ["session_shutdown"]);
+});

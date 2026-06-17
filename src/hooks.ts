@@ -92,6 +92,8 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
       });
     } catch {
       return;
+    } finally {
+      bridge.close();
     }
   });
 }

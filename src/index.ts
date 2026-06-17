@@ -15,6 +15,7 @@ export default function extension(pi: PiApi): void {
   const bridge = new IcarusBridge(config);
 
   if (config.bindHooks) bindHooks(pi, bridge, config);
+  else pi.on("session_shutdown", () => bridge.close());
   if (config.registerTools) registerTools(pi, bridge, config.registerAdminTools);
 
   process.once("exit", () => bridge.close());
