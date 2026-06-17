@@ -4,6 +4,8 @@ Binds Pi to an existing Hermes/Icarus memory system.
 
 Use this when you want Pi to get the same ambient memory behavior Hermes gets from Icarus: retrieve context before an answer, capture useful exchanges afterward, and expose normal Fabric tools.
 
+Part of the [Memory OS](https://github.com/ClaudioDrews/memory-os) ecosystem.
+
 ## At a glance
 
 - Thin bridge: Pi lifecycle events -> Icarus hooks.
