@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-17
+
 ### Changed
 
 - Move Pi-specific adapter behavior (`platform`, hook/tool registration, admin tools, context display, and worker timeout) to normal Pi settings only instead of `PI_ICARUS_HOOK_*` environment variables.
@@ -31,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Smoke tests proving tool pass-through and persistent hook session state.
 - README explaining that the package only binds Pi to Icarus and does not reimplement Memory OS behavior.
 
-[Unreleased]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Ryu-CZ/pi-icarus-hook/releases/tag/v0.1.0
