@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Move Pi-specific adapter behavior (`platform`, hook/tool registration, admin tools, context display, and worker timeout) to normal Pi settings only instead of `PI_ICARUS_HOOK_*` environment variables.
+- Keep environment variables for external Hermes/Icarus runtime paths and identity only.
+
 ## [0.1.1] - 2026-06-17
 
 ### Fixed

@@ -8,19 +8,6 @@ interface SettingsFile {
   baseDir: string;
 }
 
-function envBool(key: string, fallback: boolean): boolean {
-  const value = process.env[key];
-  if (value === undefined) return fallback;
-  return !["0", "false", "no", "off", "disabled"].includes(value.trim().toLowerCase());
-}
-
-function envInt(key: string, fallback: number): number {
-  const value = process.env[key];
-  if (!value) return fallback;
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-
 function boolValue(value: unknown, fallback: boolean): boolean {
   if (value === undefined) return fallback;
   if (typeof value === "boolean") return value;
@@ -149,13 +136,13 @@ export function loadConfig(cwd = process.cwd()): PiBridgeConfig {
     fabricDir: loadFabricDir(settings),
     agent: process.env.HERMES_AGENT_NAME || process.env.FABRIC_AGENT || packageString(settings, ["agent", "agentName", "hermesAgentName"])?.value || inferAgentFromHermesHome(hermesHome) || "pi-agent",
     projectId: process.env.FABRIC_PROJECT_ID || packageString(settings, ["projectId", "project_id"])?.value || basename(resolve(cwd)) || "unknown",
-    platform: process.env.PI_ICARUS_HOOK_PLATFORM || packageString(settings, ["platform"])?.value || "pi",
+    platform: packageString(settings, ["platform"])?.value || "pi",
     hermesHome,
     stateDbPath: process.env.STATE_DB_PATH || process.env.HERMES_STATE_DB || packageString(settings, ["stateDbPath", "state_db_path"])?.value,
-    bindHooks: process.env.PI_ICARUS_HOOK_HOOKS === undefined ? boolValue(packageValue(settings, ["hooks", "bindHooks"]), true) : envBool("PI_ICARUS_HOOK_HOOKS", true),
-    registerTools: process.env.PI_ICARUS_HOOK_TOOLS === undefined ? boolValue(packageValue(settings, ["tools", "registerTools"]), true) : envBool("PI_ICARUS_HOOK_TOOLS", true),
-    registerAdminTools: process.env.PI_ICARUS_HOOK_ADMIN_TOOLS === undefined ? boolValue(packageValue(settings, ["adminTools", "registerAdminTools"]), false) : envBool("PI_ICARUS_HOOK_ADMIN_TOOLS", false),
-    hiddenDisplay: process.env.PI_ICARUS_HOOK_CONTEXT_DISPLAY === undefined ? boolValue(packageValue(settings, ["contextDisplay", "hiddenDisplay"]), false) : envBool("PI_ICARUS_HOOK_CONTEXT_DISPLAY", false),
-    callTimeoutMs: process.env.PI_ICARUS_HOOK_TIMEOUT_MS === undefined ? intValue(packageValue(settings, ["timeoutMs", "callTimeoutMs"]), 30000) : envInt("PI_ICARUS_HOOK_TIMEOUT_MS", 30000),
+    bindHooks: boolValue(packageValue(settings, ["hooks", "bindHooks"]), true),
+    registerTools: boolValue(packageValue(settings, ["tools", "registerTools"]), true),
+    registerAdminTools: boolValue(packageValue(settings, ["adminTools", "registerAdminTools"]), false),
+    hiddenDisplay: boolValue(packageValue(settings, ["contextDisplay", "hiddenDisplay"]), false),
+    callTimeoutMs: intValue(packageValue(settings, ["timeoutMs", "callTimeoutMs"]), 30000),
   };
 }

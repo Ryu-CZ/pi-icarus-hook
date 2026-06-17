@@ -16,6 +16,9 @@ const ENV_KEYS = [
   "HERMES_STATE_DB",
   "FABRIC_PROJECT_ID",
   "PI_CODING_AGENT_DIR",
+];
+
+const IGNORED_PI_ENV_KEYS = [
   "PI_ICARUS_HOOK_PLATFORM",
   "PI_ICARUS_HOOK_HOOKS",
   "PI_ICARUS_HOOK_TOOLS",
@@ -24,12 +27,14 @@ const ENV_KEYS = [
   "PI_ICARUS_HOOK_TIMEOUT_MS",
 ];
 
+const ALL_ENV_KEYS = [...ENV_KEYS, ...IGNORED_PI_ENV_KEYS];
+
 function saveEnv(): Record<string, string | undefined> {
-  return Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
+  return Object.fromEntries(ALL_ENV_KEYS.map((key) => [key, process.env[key]]));
 }
 
 function restoreEnv(saved: Record<string, string | undefined>): void {
-  for (const key of ENV_KEYS) {
+  for (const key of ALL_ENV_KEYS) {
     const value = saved[key];
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
@@ -43,7 +48,7 @@ test("loads pi-icarus-hook settings from project .pi/settings.json", async (t) =
     restoreEnv(saved);
     await rm(root, { recursive: true, force: true });
   });
-  for (const key of ENV_KEYS) delete process.env[key];
+  for (const key of ALL_ENV_KEYS) delete process.env[key];
 
   await mkdir(join(root, ".pi"), { recursive: true });
   await writeFile(join(root, ".pi", "settings.json"), JSON.stringify({
@@ -56,6 +61,7 @@ test("loads pi-icarus-hook settings from project .pi/settings.json", async (t) =
       platform: "pi-settings",
       tools: false,
       adminTools: true,
+      contextDisplay: true,
       timeoutMs: 1234,
     },
   }), "utf8");
@@ -70,17 +76,55 @@ test("loads pi-icarus-hook settings from project .pi/settings.json", async (t) =
   assert.equal(config.platform, "pi-settings");
   assert.equal(config.registerTools, false);
   assert.equal(config.registerAdminTools, true);
+  assert.equal(config.hiddenDisplay, true);
   assert.equal(config.callTimeoutMs, 1234);
 });
 
-test("environment variables override Pi settings", async (t) => {
+test("Pi extension behavior is Pi settings only, not environment variables", async (t) => {
+  const saved = saveEnv();
+  const root = await mkdtemp(join(tmpdir(), "pi-icarus-hook-pi-settings-"));
+  t.after(async () => {
+    restoreEnv(saved);
+    await rm(root, { recursive: true, force: true });
+  });
+  for (const key of ALL_ENV_KEYS) delete process.env[key];
+  process.env.PI_ICARUS_HOOK_PLATFORM = "env-platform";
+  process.env.PI_ICARUS_HOOK_HOOKS = "1";
+  process.env.PI_ICARUS_HOOK_TOOLS = "1";
+  process.env.PI_ICARUS_HOOK_ADMIN_TOOLS = "1";
+  process.env.PI_ICARUS_HOOK_CONTEXT_DISPLAY = "1";
+  process.env.PI_ICARUS_HOOK_TIMEOUT_MS = "9999";
+
+  await mkdir(join(root, ".pi"), { recursive: true });
+  await writeFile(join(root, ".pi", "settings.json"), JSON.stringify({
+    piIcarusHook: {
+      platform: "settings-platform",
+      hooks: false,
+      tools: false,
+      adminTools: false,
+      contextDisplay: false,
+      timeoutMs: 1234,
+    },
+  }), "utf8");
+
+  const config = loadConfig(root);
+
+  assert.equal(config.platform, "settings-platform");
+  assert.equal(config.bindHooks, false);
+  assert.equal(config.registerTools, false);
+  assert.equal(config.registerAdminTools, false);
+  assert.equal(config.hiddenDisplay, false);
+  assert.equal(config.callTimeoutMs, 1234);
+});
+
+test("external runtime environment variables override Pi settings", async (t) => {
   const saved = saveEnv();
   const root = await mkdtemp(join(tmpdir(), "pi-icarus-hook-env-"));
   t.after(async () => {
     restoreEnv(saved);
     await rm(root, { recursive: true, force: true });
   });
-  for (const key of ENV_KEYS) delete process.env[key];
+  for (const key of ALL_ENV_KEYS) delete process.env[key];
 
   await mkdir(join(root, ".pi"), { recursive: true });
   await writeFile(join(root, ".pi", "settings.json"), JSON.stringify({
@@ -90,10 +134,9 @@ test("environment variables override Pi settings", async (t) => {
     },
   }), "utf8");
   process.env.ICARUS_DIR = join(root, "env-icarus");
-  process.env.PI_ICARUS_HOOK_TOOLS = "1";
 
   const config = loadConfig(root);
 
   assert.equal(config.icarusDir, join(root, "env-icarus"));
-  assert.equal(config.registerTools, true);
+  assert.equal(config.registerTools, false);
 });

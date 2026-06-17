@@ -1,50 +1,64 @@
 # pi-icarus-hook
 
-Binds Pi to an existing Hermes agent's Icarus memory system.
+Binds Pi to an existing Hermes/Icarus memory system.
 
-`pi-icarus-hook` does not reimplement Fabric recall, Qdrant search, SQLite search, decision capture, session scoring, or extraction. It keeps one persistent Python worker alive and calls Icarus directly.
+Use this when you want Pi to get the same ambient memory behavior Hermes gets from Icarus: retrieve context before an answer, capture useful exchanges afterward, and expose normal Fabric tools.
 
-## What It Is
+## At a glance
 
-`pi-icarus-hook` is a Pi-to-Icarus adapter:
+- Thin bridge: Pi lifecycle events -> Icarus hooks.
+- Memory is automatic: context is injected before the model answers.
+- Normal Fabric tools are enabled by default: write, recall, search, pending, curate, brief, Obsidian init.
+- Admin/training tools are implemented but hidden by default: export, train, eval, switch model, rollback, telemetry, report.
+- Not included: raw Qdrant/Redis/worker controls, ingestion queues, reflection controls, or ground-truth editing.
+- Persistent Python worker: required so Icarus keeps per-session state across hook calls.
 
-- Pi owns the agent lifecycle.
-- This package forwards lifecycle events to Icarus hooks.
-- Icarus owns memory behavior and side effects.
-- Returned Icarus context is injected back into Pi as hidden context.
+## Example experience
 
-The persistent Python worker is intentional. Icarus keeps per-session dedupe sets and `state.exchanges` in Python module globals, so hook calls must share one long-lived Python process.
+A Pi session starts. `pi-icarus-hook` calls Icarus, receives any relevant session or memory context, and injects it into Pi before the model answers.
 
-## What It Is Not
+```text
+User prompt
+  -> Pi before_agent_start
+    -> pi-icarus-hook
+      -> Icarus pre_llm_call(...)
+        -> Fabric / sessions / Memory OS context lookup
+      <- { "context": "relevant memories..." }
+  -> Pi model answers with that context available
+```
 
-- Not a Memory OS client.
-- Not a Qdrant, SQLite, or Fabric reimplementation.
-- Not a replacement for Icarus.
-- Not an orchestrator for Hermes internals.
+After the answer, the extension calls Icarus again so useful exchanges can be captured and later persisted.
 
-The package only knows where Icarus lives, how to start Python, which hook or tool to call, and which environment variables to pass through.
+By default, injected context is hidden from the terminal UI. Set `contextDisplay` in Pi settings if you want to see it while debugging.
 
 ## Install
 
-From a local checkout:
+Install the package into Pi:
 
 ```bash
-npm install
-npm run build
+pi install npm:pi-icarus-hook
 ```
 
-Load it with Pi from this directory, or through Pi's normal package loading mechanism:
+## Run
+
+Start Pi normally:
 
 ```bash
-pi -e ./src/index.ts
+pi
 ```
 
-The package also declares its Pi extension entry in `package.json`:
+For a one-shot prompt:
+
+```bash
+pi -p "Do you remember this project?"
+```
+
+To show injected context while testing, use normal Pi settings:
 
 ```json
 {
-  "pi": {
-    "extensions": ["./src/index.ts"]
+  "piIcarusHook": {
+    "contextDisplay": true
   }
 }
 ```
@@ -52,11 +66,152 @@ The package also declares its Pi extension entry in `package.json`:
 ## Requirements
 
 - Node.js 22 or newer.
-- A local Icarus checkout. By default this is expected at `~/.hermes/plugins/icarus`.
 - Python available as `python3`, or set `ICARUS_PYTHON`.
+- A local Icarus checkout. By default this is expected at `~/.hermes/plugins/icarus`.
 - Any Memory OS, Qdrant, SQLite, or LLM dependencies required by the Icarus hooks you call.
 
-## How It Works
+## Configuration
+
+Most setups need little or no configuration if Hermes/Icarus uses the standard local layout.
+
+Pi extension behavior is read in this order:
+
+1. Project settings at `.pi/settings.json`.
+2. Global Pi agent settings at `${PI_CODING_AGENT_DIR:-~/.pi/agent}/settings.json`.
+3. Built-in defaults.
+
+Environment variables are only used for external Hermes/Icarus runtime paths and identity, not for Pi UI/tool/hook behavior.
+
+Use `piIcarusHook` or `pi-icarus-hook` in Pi settings:
+
+```json
+{
+  "piIcarusHook": {
+    "icarusDir": "~/.hermes/plugins/icarus",
+    "hermesHome": "~/.hermes",
+    "fabricDir": "~/fabric",
+    "agent": "pi-agent",
+    "platform": "pi",
+    "hooks": true,
+    "tools": true,
+    "adminTools": false,
+    "timeoutMs": 30000,
+    "contextDisplay": false
+  }
+}
+```
+
+The Pi-specific keys `platform`, `hooks`, `tools`, `adminTools`, `timeoutMs`, and `contextDisplay` are intentionally Pi-settings-only. They are not read from environment variables because they control Pi adapter/UI/tool behavior, not the external Icarus/Hermes runtime.
+
+Pi settings:
+
+| Setting | Default | Purpose |
+|---|---|---|
+| `platform` | `pi` | Platform label passed to Icarus hooks |
+| `hooks` / `bindHooks` | `true` | Register lifecycle hooks |
+| `tools` / `registerTools` | `true` | Register normal Fabric tools |
+| `adminTools` / `registerAdminTools` | `false` | Register admin/training tools |
+| `timeoutMs` / `callTimeoutMs` | `30000` | Timeout for each Icarus worker call |
+| `contextDisplay` / `hiddenDisplay` | `false` | Show injected context instead of hiding it |
+
+Typical variables:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `ICARUS_DIR` | `~/.hermes/plugins/icarus` | Local Icarus Python package directory |
+| `HERMES_HOME` | `~/.hermes` when it exists | Hermes home for Icarus state files |
+| `HERMES_AGENT_NAME` | inferred from `.hermes-<agent>`, else `pi-agent` | Agent name passed to Icarus |
+| `FABRIC_DIR` | `~/fabric` | Shared Fabric markdown directory |
+
+Advanced variables:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `ICARUS_PYTHON` | `python3` | Python executable for the worker |
+| `STATE_DB_PATH` / `HERMES_STATE_DB` | unset | Optional explicit Hermes session SQLite path |
+| `FABRIC_PROJECT_ID` | current directory name | Project id passed to Icarus writes/retrieval |
+
+Boolean values accept `false`, `0`, `no`, `off`, and `disabled` as false.
+
+## What is included
+
+`pi-icarus-hook` exposes the Icarus/Fabric surface that is safe and useful inside a normal Pi coding session.
+
+### Ambient memory hooks
+
+These run automatically when Pi emits lifecycle events:
+
+| Pi event | Icarus hook | Behavior |
+|---|---|---|
+| `session_start` | `icarus.hooks.on_session_start()` | Injects startup context when returned |
+| `before_agent_start` | `icarus.hooks.pre_llm_call()` | Injects per-turn memory context when returned |
+| `agent_end` | `icarus.hooks.post_llm_call()` | Captures decisions and updates Icarus session state |
+| `session_shutdown` | `icarus.hooks.on_session_end()` | Scores and persists the session, then closes the worker |
+
+The hook path is the recommended default. The model does not need to remember to call a tool before every answer; memory is injected as infrastructure.
+
+### Normal Fabric tools, enabled by default
+
+These are regular work-session tools and are safe to expose to Pi agents by default:
+
+- `fabric_write` — write a structured entry into shared Fabric memory.
+- `fabric_recall` — ranked retrieval of relevant Fabric memories by query.
+- `fabric_search` — literal keyword search across Fabric entries.
+- `fabric_pending` — list open tasks, reviews, and tickets assigned through Fabric.
+- `fabric_curate` — update an entry's training value: `high`, `normal`, or `low`.
+- `fabric_brief` — summarize pending work, recent Fabric activity, other agents' work, and suggested next action.
+- `fabric_init_obsidian` — initialize Fabric as an Obsidian-readable vault.
+
+### Admin and training Fabric tools, disabled by default
+
+These tools can export training data, start model training, evaluate models, or switch/rollback the active model. They are implemented, but hidden from Pi unless explicitly enabled:
+
+- `fabric_report` — report corpus health and trainable-memory statistics.
+- `fabric_telemetry` — show recall/reuse telemetry.
+- `fabric_export` — export Fabric entries as fine-tuning JSONL training pairs.
+- `fabric_train` — start a Together AI fine-tuning job from Fabric data.
+- `fabric_train_status` — check status of a Fabric/Together fine-tuning job.
+- `fabric_models` — list fine-tuned models trained from Fabric.
+- `fabric_eval` — evaluate a replacement model against Fabric-derived eval prompts.
+- `fabric_switch_model` — switch the active agent model to an evaluated replacement.
+- `fabric_rollback_model` — restore the previous model config from backup.
+
+Keep these hidden from Pi by default. They are operational controls, not normal coding-session memory tools. Hermes can keep them available for the main controller/operator, while Pi agents should only receive them when you intentionally enter admin mode.
+
+Enable them only when needed in `.pi/settings.json` or global Pi settings:
+
+```json
+{
+  "piIcarusHook": {
+    "adminTools": true
+  }
+}
+```
+
+## What is not included
+
+This package is not:
+
+- a Memory OS client;
+- a Qdrant, SQLite, or Fabric reimplementation;
+- a replacement for Icarus;
+- an orchestrator for Hermes internals;
+- a Memory OS admin console.
+
+It also does not expose lower-level Memory OS infrastructure controls. If those are needed, they should live in a separate optional admin extension rather than in this thin hook bridge.
+
+Examples of intentionally absent admin/diagnostic surfaces:
+
+- raw Qdrant/vector search
+- Redis queue inspection
+- worker health controls
+- ingestion/reflection enqueue and retry controls
+- ground-truth promotion or editing
+- last injected context inspection
+
+Keeping this package narrow avoids tool-name conflicts, reduces accidental destructive operations, and preserves the boundary: Pi calls Icarus; Icarus owns Memory OS behavior.
+
+## How it works
 
 Simple cascade:
 
@@ -75,81 +230,9 @@ Icarus returns {"context": "..."}
     -> Pi receives the memory context with display: false
 ```
 
+The persistent Python worker is intentional. Icarus keeps per-session dedupe sets and `state.exchanges` in Python module globals, so hook calls must share one long-lived Python process.
+
 If Memory OS changes behind Icarus, `pi-icarus-hook` should not need to change unless Icarus hook or tool signatures change.
-
-## Lifecycle Bindings
-
-| Pi event | Icarus hook | Behavior |
-|---|---|---|
-| `session_start` | `icarus.hooks.on_session_start()` | Injects startup context when returned |
-| `before_agent_start` | `icarus.hooks.pre_llm_call()` | Injects per-turn memory context when returned |
-| `agent_end` | `icarus.hooks.post_llm_call()` | Captures decisions and updates Icarus session state |
-| `session_shutdown` | `icarus.hooks.on_session_end()` | Scores and persists the session when Pi emits this event |
-
-`session_shutdown` is registered opportunistically. If the local Pi runtime does not emit it, the other hooks still work.
-
-## Tools
-
-Normal Fabric tools are pass-through wrappers around `icarus.tools.*`:
-
-- `fabric_write`
-- `fabric_recall`
-- `fabric_search`
-- `fabric_pending`
-- `fabric_curate`
-- `fabric_brief`
-- `fabric_init_obsidian`
-
-Admin and training tools are disabled by default. Enable them with `PI_ICARUS_HOOK_ADMIN_TOOLS=1`.
-
-## Configuration
-
-Most setups should need little or no configuration if Hermes/Icarus uses the standard local layout.
-
-Configuration is read in this order:
-
-1. Environment variables.
-2. Project settings at `.pi/settings.json`.
-3. Global Pi agent settings at `${PI_CODING_AGENT_DIR:-~/.pi/agent}/settings.json`.
-4. Built-in defaults.
-
-Use `piIcarusHook` or `pi-icarus-hook` in Pi settings:
-
-```json
-{
-  "piIcarusHook": {
-    "icarusDir": "~/.hermes/plugins/icarus",
-    "hermesHome": "~/.hermes",
-    "fabricDir": "~/fabric",
-    "agent": "pi-agent"
-  }
-}
-```
-
-Typical variables:
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `ICARUS_DIR` | `~/.hermes/plugins/icarus` | Local Icarus Python package directory |
-| `HERMES_HOME` | `~/.hermes` when it exists | Hermes home for Icarus state files |
-| `HERMES_AGENT_NAME` | inferred from `.hermes-<agent>`, else `pi-agent` | Agent name passed to Icarus |
-| `FABRIC_DIR` | `~/fabric` | Shared Fabric markdown directory |
-
-Advanced variables:
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `ICARUS_PYTHON` | `python3` | Python executable for the worker |
-| `STATE_DB_PATH` / `HERMES_STATE_DB` | unset | Optional explicit Hermes session SQLite path |
-| `FABRIC_PROJECT_ID` | current directory name | Project id passed to Icarus writes/retrieval |
-| `PI_ICARUS_HOOK_PLATFORM` | `pi` | Platform label passed to Icarus hooks |
-| `PI_ICARUS_HOOK_HOOKS` | `true` | Register lifecycle hooks |
-| `PI_ICARUS_HOOK_TOOLS` | `true` | Register normal Fabric tools |
-| `PI_ICARUS_HOOK_ADMIN_TOOLS` | `false` | Register admin/training tools |
-| `PI_ICARUS_HOOK_CONTEXT_DISPLAY` | `false` | Show injected context instead of hiding it |
-| `PI_ICARUS_HOOK_TIMEOUT_MS` | `30000` | Timeout for each Icarus worker call |
-
-Boolean values accept `false`, `0`, `no`, `off`, and `disabled` as false.
 
 ## Verify
 
@@ -160,3 +243,34 @@ npm test
 ```
 
 The smoke tests verify that Fabric tools pass through to Icarus and that hook session state persists across calls in the Python worker.
+
+## Developer install
+
+From a local checkout:
+
+```bash
+npm install
+npm run build
+```
+
+Load this checkout directly:
+
+```bash
+pi --no-extensions -e ./src/index.ts
+```
+
+For a one-shot local smoke test without other installed extensions:
+
+```bash
+pi --no-extensions -e ./src/index.ts -p "Do you remember this project?"
+```
+
+The package declares its Pi extension entry in `package.json`:
+
+```json
+{
+  "pi": {
+    "extensions": ["./src/index.ts"]
+  }
+}
+```
