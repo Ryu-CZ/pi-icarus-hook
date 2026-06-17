@@ -4,6 +4,7 @@
   "private": false,
   "description": "Thin Pi lifecycle bridge to local Hermes/Icarus Memory OS hooks and tools",
   "license": "MIT",
+  "author": "Ryu-CZ <thandeus@gmail.com> (https://github.com/Ryu-CZ)",
   "type": "module",
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",
@@ -40,7 +41,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/Ryu-CZ/pi-icarus-hook.git"
+    "url": "git+https://git@github.com/Ryu-CZ/pi-icarus-hook.git"
   },
   "bugs": {
     "url": "https://github.com/Ryu-CZ/pi-icarus-hook/issues"
