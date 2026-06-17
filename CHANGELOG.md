@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-06-17
+
 ### Fixed
 
 - Close the Icarus bridge worker on Pi `session_shutdown` so non-interactive `pi -p` runs exit cleanly after calling Fabric tools.
