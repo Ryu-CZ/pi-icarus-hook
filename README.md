@@ -133,6 +133,17 @@ Advanced variables:
 
 Boolean values accept `false`, `0`, `no`, `off`, and `disabled` as false.
 
+### Self-inspection
+
+The package ships `README.md` in the npm package (`package.json` includes it in `files`), and npm normally includes readmes as package metadata too.
+
+For machine-readable inspection, the extension also exports `CONFIG_SCHEMA` from `src/config-schema.ts` and exposes two runtime surfaces:
+
+- Slash command: `/icarus-hook` — prints the current effective config, schema, and a settings JSON snippet.
+- Tool: `icarus_hook_config` — read-only tool available when normal tools are enabled. It returns the same schema/effective config so the Pi agent can inspect how the extension is configured.
+
+The introspection surfaces are intentionally read-only. They can explain or suggest settings, but they do not mutate `.pi/settings.json` or `~/.pi/agent/settings.json`.
+
 ## What is included
 
 `pi-icarus-hook` exposes the Icarus/Fabric surface that is safe and useful inside a normal Pi coding session.
@@ -161,6 +172,7 @@ These are regular work-session tools and are safe to expose to Pi agents by defa
 - `fabric_curate` — update an entry's training value: `high`, `normal`, or `low`.
 - `fabric_brief` — summarize pending work, recent Fabric activity, other agents' work, and suggested next action.
 - `fabric_init_obsidian` — initialize Fabric as an Obsidian-readable vault.
+- `icarus_hook_config` — inspect this extension's config schema and effective config.
 
 ### Admin and training Fabric tools, disabled by default
 

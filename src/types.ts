@@ -25,6 +25,7 @@ export interface ToolDefinition {
 export interface PiApi {
   on: (event: string, handler: (...args: unknown[]) => unknown) => void;
   registerTool: (tool: ToolDefinition & { execute: (toolCallId: string, params: Record<string, unknown>) => Promise<unknown> }) => void;
+  registerCommand?: (name: string, command: { description: string; handler: (args: unknown, ctx: unknown) => unknown }) => void;
 }
 
 export interface PiMessage {

@@ -24,6 +24,7 @@ function restoreEnv(saved: Record<string, string | undefined>): void {
 
 test("extension registers hook bindings and normal fabric tools", async (t) => {
   const events: string[] = [];
+  const commands: string[] = [];
   const tools: string[] = [];
   const root = await mkdtemp(join(tmpdir(), "pi-icarus-hook-extension-"));
   const oldCwd = process.cwd();
@@ -49,10 +50,13 @@ test("extension registers hook bindings and normal fabric tools", async (t) => {
 
   extension({
     on(event, _handler) { events.push(event); },
+    registerCommand(name, _command) { commands.push(name); },
     registerTool(tool) { tools.push(tool.name); },
   });
 
   assert.deepEqual(events, ["session_start", "before_agent_start", "agent_end", "session_shutdown"]);
+  assert.deepEqual(commands, ["icarus-hook"]);
+  assert.ok(tools.includes("icarus_hook_config"));
   assert.ok(tools.includes("fabric_write"));
   assert.ok(tools.includes("fabric_recall"));
   assert.ok(!tools.includes("fabric_train"));
@@ -60,6 +64,8 @@ test("extension registers hook bindings and normal fabric tools", async (t) => {
 
 test("extension closes bridge on shutdown when hook bindings are disabled", async (t) => {
   const events: string[] = [];
+  const commands: string[] = [];
+  const tools: string[] = [];
   const root = await mkdtemp(join(tmpdir(), "pi-icarus-hook-extension-disabled-"));
   const oldCwd = process.cwd();
   const oldEnv = saveEnv();
@@ -84,8 +90,11 @@ test("extension closes bridge on shutdown when hook bindings are disabled", asyn
 
   extension({
     on(event, _handler) { events.push(event); },
-    registerTool(_tool) {},
+    registerCommand(name, _command) { commands.push(name); },
+    registerTool(tool) { tools.push(tool.name); },
   });
 
   assert.deepEqual(events, ["session_shutdown"]);
+  assert.deepEqual(commands, ["icarus-hook"]);
+  assert.deepEqual(tools, []);
 });

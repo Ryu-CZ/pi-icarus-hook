@@ -1,11 +1,13 @@
 import { IcarusBridge } from "./bridge.js";
 import { loadConfig } from "./config.js";
+import { registerConfigIntrospection } from "./config-schema.js";
 import { bindHooks } from "./hooks.js";
 import { registerTools } from "./tools.js";
 import type { PiApi } from "./types.js";
 
 export { IcarusBridge, icarusDirUrl } from "./bridge.js";
 export { loadConfig } from "./config.js";
+export { CONFIG_SCHEMA, configInspection, configSnippet, registerConfigIntrospection } from "./config-schema.js";
 export { bindHooks } from "./hooks.js";
 export { registerTools } from "./tools.js";
 export type { HookResult, PiApi, PiBridgeConfig, PiMessage, ToolDefinition } from "./types.js";
@@ -16,6 +18,7 @@ export default function extension(pi: PiApi): void {
 
   if (config.bindHooks) bindHooks(pi, bridge, config);
   else pi.on("session_shutdown", () => bridge.close());
+  registerConfigIntrospection(pi, config, config.registerTools);
   if (config.registerTools) registerTools(pi, bridge, config.registerAdminTools);
 
   process.once("exit", () => bridge.close());

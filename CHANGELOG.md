@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add a read-only `CONFIG_SCHEMA`, `/icarus-hook` command, and `icarus_hook_config` tool so Pi and users can inspect supported settings and current effective config.
+
 ## [0.2.0] - 2026-06-17
 
 ### Changed
