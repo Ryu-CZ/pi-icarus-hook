@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-06-17
+
 ### Fixed
 
 - Add missing `pi-package` npm keyword and `peerDependencies` so the package appears in Pi's catalog listing.
@@ -50,7 +52,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Smoke tests proving tool pass-through and persistent hook session state.
 - README explaining that the package only binds Pi to Icarus and does not reimplement Memory OS behavior.
 
-[Unreleased]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.1.1...v0.2.0

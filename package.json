@@ -1,6 +1,6 @@
 {
   "name": "pi-icarus-hook",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": false,
   "description": "Thin Pi lifecycle bridge to local Hermes/Icarus Memory OS hooks and tools",
   "license": "MIT",
