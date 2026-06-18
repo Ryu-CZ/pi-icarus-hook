@@ -9,8 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add package gallery image metadata and include media assets in the published package.
-- Decorate the README with banner and usage images from the media folder.
+- Add package gallery image metadata for the banner image.
+- Decorate the README with remotely referenced banner and usage images.
 
 ## [0.5.0] - 2026-06-18
 

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="media/banner.webp" alt="pi-icarus-hook banner" />
+  <img src="https://raw.githubusercontent.com/Ryu-CZ/pi-icarus-hook/main/media/banner.webp" alt="pi-icarus-hook banner" />
 </p>
 
 # pi-icarus-hook
@@ -51,7 +51,7 @@ pi install npm:pi-icarus-hook
 ## Usage
 
 <p align="center">
-  <img src="media/usage.webp" alt="pi-icarus-hook usage" />
+  <img src="https://raw.githubusercontent.com/Ryu-CZ/pi-icarus-hook/main/media/usage.webp" alt="pi-icarus-hook usage" />
 </p>
 
 Start Pi normally:

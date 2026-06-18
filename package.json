@@ -12,8 +12,7 @@
     "dist/src",
     "src",
     "README.md",
-    "CHANGELOG.md",
-    "media"
+    "CHANGELOG.md"
   ],
   "keywords": [
     "pi-package",
