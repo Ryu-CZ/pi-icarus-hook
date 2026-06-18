@@ -63,7 +63,7 @@ pi
 For a one-shot prompt:
 
 ```bash
-pi -p "Do you remember this project?"
+pi -p "What is the last project we worked on?"
 ```
 
 ## Commands
@@ -321,15 +321,16 @@ pi --no-extensions -e ./src/index.ts
 For a one-shot local smoke test without other installed extensions:
 
 ```bash
-pi --no-extensions -e ./src/index.ts -p "Do you remember this project?"
+pi --no-extensions -e ./src/index.ts -p "What is the last project we worked on?"
 ```
 
-The package declares its Pi extension entry in `package.json`:
+The package declares its Pi extension entry and gallery image in `package.json`:
 
 ```json
 {
   "pi": {
-    "extensions": ["./src/index.ts"]
+    "extensions": ["./src/index.ts"],
+    "image": "https://raw.githubusercontent.com/Ryu-CZ/pi-icarus-hook/main/media/banner.webp"
   }
 }
 ```
