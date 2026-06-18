@@ -30,6 +30,7 @@ export interface PiApi {
 }
 
 export interface PiContext {
+  cwd?: string;
   ui?: {
     setStatus?: (key: string, value: string | undefined) => void;
     notify?: (message: string, level?: string) => void;
@@ -40,6 +41,9 @@ export interface IcarusHookControl {
   isEnabled: () => boolean;
   setEnabled: (enabled: boolean, ctx?: unknown) => void;
   toggle: (ctx?: unknown) => boolean;
+  isContextVisible: () => boolean;
+  setContextVisible: (visible: boolean) => void;
+  toggleContextVisible: () => boolean;
 }
 
 export interface PiMessage {

@@ -104,6 +104,7 @@ test("loads footer status from global Pi settings", async (t) => {
   const config = loadConfig(root);
 
   assert.equal(config.footerStatus, "🪽 Global Icarus");
+  assert.equal(config.hiddenDisplay, true);
 });
 
 test("Pi extension behavior is Pi settings only, not environment variables", async (t) => {

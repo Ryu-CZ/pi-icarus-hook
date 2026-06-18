@@ -22,7 +22,7 @@ const config: PiBridgeConfig = {
 
 test("config schema describes Pi settings and runtime env separately", () => {
   assert.equal(CONFIG_SCHEMA.key, "piIcarusHook");
-  assert.equal(CONFIG_SCHEMA.settings.contextDisplay.default, false);
+  assert.equal(CONFIG_SCHEMA.settings.contextDisplay.default, true);
   assert.equal(CONFIG_SCHEMA.settings.footerStatus.default, "🪽 Icarus");
   assert.equal(CONFIG_SCHEMA.settings.adminTools.default, false);
   assert.equal(CONFIG_SCHEMA.runtimeEnv.ICARUS_DIR.default, "~/.hermes/plugins/icarus");

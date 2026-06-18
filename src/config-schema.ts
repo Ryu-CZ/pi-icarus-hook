@@ -1,4 +1,11 @@
 import type { IcarusHookControl, PiApi, PiBridgeConfig, PiContext } from "./types.js";
+import {
+  chooseBooleanPackageSettingScope,
+  inspectBooleanPackageSetting,
+  inspectBooleanPackageSettingScope,
+  type SettingsScope,
+  writeBooleanPackageSetting,
+} from "./settings.js";
 
 export interface ConfigSettingSchema {
   type: "boolean" | "number" | "string";
@@ -48,7 +55,7 @@ export const CONFIG_SCHEMA = {
     },
     contextDisplay: {
       type: "boolean",
-      default: false,
+      default: true,
       aliases: ["hiddenDisplay"],
       description: "Show injected Icarus context in the Pi UI instead of hiding it.",
     },
@@ -144,11 +151,99 @@ function hookStatusMessage(hookControl: IcarusHookControl | undefined): string {
     : "Icarus memory hooks are off for this Pi session. This conversation will not load or save Icarus memory.";
 }
 
+function contextVisibilityMessage(hookControl: IcarusHookControl): string {
+  return hookControl.isContextVisible()
+    ? "Icarus injected context is visible in this Pi session."
+    : "Icarus injected context is hidden in this Pi session.";
+}
+
+function visibilityLabel(value: boolean): string {
+  return value ? "visible" : "hidden";
+}
+
+function scopeLabel(source: string): string {
+  return source === "built-in" ? "built-in default" : `${source} settings`;
+}
+
+function cwdFromContext(ctx: unknown): string {
+  const piContext = ctx && typeof ctx === "object" ? ctx as PiContext : {};
+  return piContext.cwd || process.cwd();
+}
+
+function parseScope(value: string | undefined): SettingsScope | undefined {
+  if (value === "global" || value === "user") return "global";
+  if (value === "project" || value === "local") return "project";
+  return undefined;
+}
+
+function parseVisibility(value: string): boolean | undefined {
+  if (["on", "show", "visible", "enable"].includes(value)) return true;
+  if (["off", "hide", "hidden", "disable"].includes(value)) return false;
+  return undefined;
+}
+
+async function contextDefaultMessage(parts: string[], config: PiBridgeConfig, hookControl: IcarusHookControl, ctx: unknown): Promise<string | undefined> {
+  const cwd = cwdFromContext(ctx);
+  const action = parts[2] || "status";
+  const requestedScope = parseScope(parts[3]) ?? parseScope(action);
+
+  if (action === "" || action === "status" || requestedScope && parts.length === 3) {
+    const setting = requestedScope
+      ? await inspectBooleanPackageSettingScope(requestedScope, "contextDisplay", CONFIG_SCHEMA.settings.contextDisplay.default, cwd)
+      : await inspectBooleanPackageSetting("contextDisplay", CONFIG_SCHEMA.settings.contextDisplay.default, cwd);
+    const path = setting.path ? ` (${setting.path})` : "";
+    return `Icarus injected context is ${visibilityLabel(hookControl.isContextVisible())} in this Pi session. Startup default is ${visibilityLabel(setting.value)} from ${scopeLabel(setting.source)}${path}.`;
+  }
+
+  const visible = action === "toggle"
+    ? !(await inspectBooleanPackageSetting("contextDisplay", CONFIG_SCHEMA.settings.contextDisplay.default, cwd)).value
+    : parseVisibility(action);
+  if (visible === undefined) return undefined;
+
+  const scope = await chooseBooleanPackageSettingScope("contextDisplay", cwd, requestedScope);
+  const result = await writeBooleanPackageSetting(scope, cwd, "contextDisplay", visible);
+  return `Icarus injected context will be ${visibilityLabel(visible)} by default for future Pi sessions (${result.scope} settings: ${result.path}). Current session is still ${visibilityLabel(hookControl.isContextVisible())}; use /icarus context ${visible ? "show" : "hide"} to change it now.`;
+}
+
+function handleContextVisibility(command: string, hookControl: IcarusHookControl): string | undefined {
+  if (["", "toggle"].includes(command)) {
+    hookControl.toggleContextVisible();
+    return contextVisibilityMessage(hookControl);
+  }
+  if (["status"].includes(command)) return contextVisibilityMessage(hookControl);
+  if (["on", "show", "visible", "enable"].includes(command)) {
+    hookControl.setContextVisible(true);
+    return contextVisibilityMessage(hookControl);
+  }
+  if (["off", "hide", "hidden", "disable"].includes(command)) {
+    hookControl.setContextVisible(false);
+    return contextVisibilityMessage(hookControl);
+  }
+  return undefined;
+}
+
 export function registerConfigIntrospection(pi: PiApi, config: PiBridgeConfig, registerTool: boolean, hookControl?: IcarusHookControl): void {
-  pi.registerCommand?.("icarus-hook", {
-    description: "Toggle whether this Pi session loads and saves Icarus memory",
+  pi.registerCommand?.("icarus", {
+    description: "Control Icarus memory hooks and injected context display",
     handler: async (args: unknown, ctx: unknown) => {
-      const command = typeof args === "string" ? args.trim().toLowerCase().split(/\s+/)[0] : "";
+      const parts = typeof args === "string" ? args.trim().toLowerCase().split(/\s+/).filter(Boolean) : [];
+      const command = parts[0] || "";
+      if (command === "context") {
+        if (!hookControl) {
+          const message = hookStatusMessage(hookControl);
+          notify(ctx, message, "warning");
+          return message;
+        }
+
+        const message = parts[1] === "default"
+          ? await contextDefaultMessage(parts, config, hookControl, ctx)
+          : handleContextVisibility(parts[1] || "", hookControl);
+        if (message) {
+          notify(ctx, message, "info");
+          return message;
+        }
+      }
+
       if (["", "status", "toggle", "on", "enable", "off", "disable"].includes(command)) {
         if (!hookControl) {
           const message = hookStatusMessage(hookControl);

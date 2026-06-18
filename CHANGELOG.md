@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Rename the Pi slash command from `/icarus-hook` to `/icarus`.
+- Show injected Icarus context by default and add `/icarus context` controls for session visibility plus explicit `/icarus context default ...` settings writes for future sessions.
+
 ## [0.4.1] - 2026-06-17
 
 ### Fixed

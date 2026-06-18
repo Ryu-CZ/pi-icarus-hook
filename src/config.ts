@@ -142,7 +142,7 @@ export function loadConfig(cwd = process.cwd()): PiBridgeConfig {
     bindHooks: boolValue(packageValue(settings, ["hooks", "bindHooks"]), true),
     registerTools: boolValue(packageValue(settings, ["tools", "registerTools"]), true),
     registerAdminTools: boolValue(packageValue(settings, ["adminTools", "registerAdminTools"]), false),
-    hiddenDisplay: boolValue(packageValue(settings, ["contextDisplay", "hiddenDisplay"]), false),
+    hiddenDisplay: boolValue(packageValue(settings, ["contextDisplay", "hiddenDisplay"]), true),
     footerStatus: packageString(settings, ["footerStatus", "statusLabel"])?.value || "🪽 Icarus",
     callTimeoutMs: intValue(packageValue(settings, ["timeoutMs", "callTimeoutMs"]), 30000),
   };

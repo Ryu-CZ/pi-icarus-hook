@@ -1,7 +1,7 @@
 import type { IcarusBridge } from "./bridge.js";
 import type { HookResult, IcarusHookControl, PiApi, PiBridgeConfig, PiContext, PiMessage } from "./types.js";
 
-const FOOTER_STATUS_KEY = "icarus-hook";
+const FOOTER_STATUS_KEY = "icarus";
 
 function asText(value: unknown): string {
   if (typeof value === "string") return value;
@@ -39,9 +39,9 @@ function setFooterStatus(ctx: unknown, value: string | undefined): void {
   }
 }
 
-function contextMessage(customType: string, content: string, config: PiBridgeConfig): { message: PiMessage } | void {
+function contextMessage(customType: string, content: string, display: boolean): { message: PiMessage } | void {
   if (!content.trim()) return;
-  return { message: { customType, content, display: config.hiddenDisplay } };
+  return { message: { customType, content, display } };
 }
 
 function sessionIdFrom(event: Record<string, unknown>, ctx?: Record<string, unknown>): string {
@@ -54,6 +54,7 @@ function sessionIdFrom(event: Record<string, unknown>, ctx?: Record<string, unkn
 
 export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfig): IcarusHookControl {
   let enabled = true;
+  let contextVisible = config.hiddenDisplay;
   const control: IcarusHookControl = {
     isEnabled: () => enabled,
     setEnabled(value, ctx) {
@@ -64,6 +65,14 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
       enabled = !enabled;
       setFooterStatus(ctx, enabled ? config.footerStatus : undefined);
       return enabled;
+    },
+    isContextVisible: () => contextVisible,
+    setContextVisible(value) {
+      contextVisible = value;
+    },
+    toggleContextVisible() {
+      contextVisible = !contextVisible;
+      return contextVisible;
     },
   };
 
@@ -78,7 +87,7 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
         session_id: sessionIdFrom(eventRecord(event), eventRecord(ctx)),
         platform: config.platform,
       }) as HookResult | null;
-      return contextMessage("icarus-session-context", result?.context || "", config);
+      return contextMessage("icarus-session-context", result?.context || "", contextVisible);
     } catch {
       return;
     }
@@ -99,7 +108,7 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
         user_message: prompt,
         is_first_turn: Boolean(record.is_first_turn ?? record.isFirstTurn ?? record.turn === 0),
       }) as HookResult | null;
-      return contextMessage("icarus-memory-context", result?.context || "", config);
+      return contextMessage("icarus-memory-context", result?.context || "", contextVisible);
     } catch {
       return;
     }

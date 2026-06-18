@@ -1,14 +1,18 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import extension from "../src/index.js";
+import { registerConfigIntrospection } from "../src/config-schema.js";
+import { bindHooks } from "../src/hooks.js";
+import type { PiApi, PiBridgeConfig } from "../src/types.js";
 
 const IGNORED_PI_ENV_KEYS = [
   "PI_ICARUS_HOOK_ADMIN_TOOLS",
   "PI_ICARUS_HOOK_TOOLS",
   "PI_ICARUS_HOOK_HOOKS",
+  "PI_CODING_AGENT_DIR",
 ];
 
 function saveEnv(): Record<string, string | undefined> {
@@ -66,14 +70,18 @@ test("extension registers hook bindings and normal fabric tools", async (t) => {
   await handlers.before_agent_start?.({}, ctx);
 
   assert.deepEqual(events, ["session_start", "before_agent_start", "agent_end", "session_shutdown"]);
-  assert.deepEqual(commands, ["icarus-hook"]);
-  assert.equal(statuses["icarus-hook"], "🪽 Icarus");
-  assert.match(String(await commandHandlers["icarus-hook"]?.("", ctx)), /hooks are off/);
-  assert.equal(statuses["icarus-hook"], undefined);
+  assert.deepEqual(commands, ["icarus"]);
+  assert.equal(statuses["icarus"], "🪽 Icarus");
+  assert.match(String(await commandHandlers["icarus"]?.("", ctx)), /hooks are off/);
+  assert.equal(statuses["icarus"], undefined);
+  assert.match(String(await commandHandlers["icarus"]?.("context status", ctx)), /visible/);
+  assert.match(String(await commandHandlers["icarus"]?.("context hide", ctx)), /hidden/);
+  assert.match(String(await commandHandlers["icarus"]?.("context show", ctx)), /visible/);
+  assert.match(String(await commandHandlers["icarus"]?.("context", ctx)), /hidden/);
   await handlers.before_agent_start?.({}, ctx);
-  assert.equal(statuses["icarus-hook"], undefined);
-  assert.match(String(await commandHandlers["icarus-hook"]?.("", ctx)), /hooks are on/);
-  assert.equal(statuses["icarus-hook"], "🪽 Icarus");
+  assert.equal(statuses["icarus"], undefined);
+  assert.match(String(await commandHandlers["icarus"]?.("", ctx)), /hooks are on/);
+  assert.equal(statuses["icarus"], "🪽 Icarus");
   assert.ok(tools.includes("icarus_hook_config"));
   assert.ok(tools.includes("fabric_write"));
   assert.ok(tools.includes("fabric_recall"));
@@ -113,6 +121,107 @@ test("extension closes bridge on shutdown when hook bindings are disabled", asyn
   });
 
   assert.deepEqual(events, ["session_shutdown"]);
-  assert.deepEqual(commands, ["icarus-hook"]);
+  assert.deepEqual(commands, ["icarus"]);
   assert.deepEqual(tools, []);
+});
+
+test("runtime context visibility controls injected message display", async () => {
+  const handlers: Record<string, (...args: unknown[]) => unknown> = {};
+  const commands: Record<string, (args: unknown, ctx: unknown) => unknown> = {};
+  const config: PiBridgeConfig = {
+    icarusDir: "/tmp/icarus",
+    python: "python3",
+    fabricDir: "/tmp/fabric",
+    agent: "pi-agent",
+    projectId: "pi-icarus-hook",
+    platform: "pi",
+    bindHooks: true,
+    registerTools: false,
+    registerAdminTools: false,
+    hiddenDisplay: true,
+    footerStatus: "🪽 Icarus",
+    callTimeoutMs: 30000,
+  };
+  const pi: PiApi = {
+    on(event, handler) { handlers[event] = handler; },
+    registerCommand(name, command) { commands[name] = command.handler; },
+    registerTool() {},
+  };
+  const bridge = {
+    hook: async () => ({ context: "remembered context" }),
+    close() {},
+  };
+
+  const hookControl = bindHooks(pi, bridge as never, config);
+  registerConfigIntrospection(pi, config, false, hookControl);
+
+  const visible = await handlers.before_agent_start?.({ prompt: "hello", session_id: "s" }, {});
+  assert.equal((visible as { message: { display: boolean } }).message.display, true);
+
+  assert.match(String(await commands.icarus?.("context hide", {})), /hidden/);
+  const hidden = await handlers.before_agent_start?.({ prompt: "hello", session_id: "s" }, {});
+  assert.equal((hidden as { message: { display: boolean } }).message.display, false);
+
+  assert.match(String(await commands.icarus?.("context", {})), /visible/);
+  const visibleAgain = await handlers.before_agent_start?.({ prompt: "hello", session_id: "s" }, {});
+  assert.equal((visibleAgain as { message: { display: boolean } }).message.display, true);
+});
+
+test("context default commands persist future startup defaults only", async (t) => {
+  const handlers: Record<string, (...args: unknown[]) => unknown> = {};
+  const commands: Record<string, (args: unknown, ctx: unknown) => unknown> = {};
+  const root = await mkdtemp(join(tmpdir(), "pi-icarus-hook-settings-"));
+  const agentDir = join(root, "agent");
+  const oldEnv = saveEnv();
+  t.after(async () => {
+    restoreEnv(oldEnv);
+    await rm(root, { recursive: true, force: true });
+  });
+  process.env.PI_CODING_AGENT_DIR = agentDir;
+
+  const config: PiBridgeConfig = {
+    icarusDir: "/tmp/icarus",
+    python: "python3",
+    fabricDir: "/tmp/fabric",
+    agent: "pi-agent",
+    projectId: "pi-icarus-hook",
+    platform: "pi",
+    bindHooks: true,
+    registerTools: false,
+    registerAdminTools: false,
+    hiddenDisplay: true,
+    footerStatus: "🪽 Icarus",
+    callTimeoutMs: 30000,
+  };
+  const pi: PiApi = {
+    on(event, handler) { handlers[event] = handler; },
+    registerCommand(name, command) { commands[name] = command.handler; },
+    registerTool() {},
+  };
+  const bridge = {
+    hook: async () => ({ context: "remembered context" }),
+    close() {},
+  };
+  const ctx = { cwd: root, ui: { notify() {} } };
+
+  const hookControl = bindHooks(pi, bridge as never, config);
+  registerConfigIntrospection(pi, config, false, hookControl);
+
+  assert.match(String(await commands.icarus?.("context default status", ctx)), /Startup default is visible from built-in default/);
+  assert.match(String(await commands.icarus?.("context default hide", ctx)), /future Pi sessions/);
+
+  const globalSettings = JSON.parse(await readFile(join(agentDir, "settings.json"), "utf8")) as Record<string, { contextDisplay: boolean }>;
+  assert.equal(globalSettings.piIcarusHook.contextDisplay, false);
+
+  const visible = await handlers.before_agent_start?.({ prompt: "hello", session_id: "s" }, {});
+  assert.equal((visible as { message: { display: boolean } }).message.display, true);
+
+  assert.match(String(await commands.icarus?.("context hide", ctx)), /hidden/);
+  assert.match(String(await commands.icarus?.("context default show project", ctx)), /project settings/);
+
+  const projectSettings = JSON.parse(await readFile(join(root, ".pi", "settings.json"), "utf8")) as Record<string, { contextDisplay: boolean }>;
+  assert.equal(projectSettings.piIcarusHook.contextDisplay, true);
+
+  const hidden = await handlers.before_agent_start?.({ prompt: "hello", session_id: "s" }, {});
+  assert.equal((hidden as { message: { display: boolean } }).message.display, false);
 });
