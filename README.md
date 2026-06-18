@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="media/banner.webp" alt="pi-icarus-hook banner" />
+</p>
+
 # pi-icarus-hook
 
 Binds Pi to an existing Hermes/Icarus Memory OS.
@@ -44,7 +48,11 @@ Install the package into Pi:
 pi install npm:pi-icarus-hook
 ```
 
-## Run
+## Usage
+
+<p align="center">
+  <img src="media/usage.webp" alt="pi-icarus-hook usage" />
+</p>
 
 Start Pi normally:
 

@@ -12,7 +12,8 @@
     "dist/src",
     "src",
     "README.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "media"
   ],
   "keywords": [
     "pi-package",
@@ -50,7 +51,8 @@
   "pi": {
     "extensions": [
       "./src/index.ts"
-    ]
+    ],
+    "image": "https://raw.githubusercontent.com/Ryu-CZ/pi-icarus-hook/main/media/banner.webp"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
