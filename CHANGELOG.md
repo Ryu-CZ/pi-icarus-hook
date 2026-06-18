@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add README badges for npm, license, and Pi package gallery metadata.
+
 ## [0.5.1] - 2026-06-18
 
 ### Added

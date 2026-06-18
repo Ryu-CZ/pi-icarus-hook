@@ -4,6 +4,21 @@
 
 # pi-icarus-hook
 
+<p>
+  <a href="https://www.npmjs.com/package/pi-icarus-hook">
+    <img src="https://img.shields.io/npm/v/pi-icarus-hook" alt="npm version">
+  </a>
+  <a href="https://www.npmjs.com/package/pi-icarus-hook">
+    <img src="https://img.shields.io/npm/dt/pi-icarus-hook" alt="npm downloads">
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/npm/l/pi-icarus-hook" alt="license">
+  </a>
+  <a href="https://pi.dev/packages/pi-icarus-hook">
+    <img src="https://img.shields.io/badge/pi-package-1a1a2e" alt="pi package">
+  </a>
+</p>
+
 Binds Pi to an existing Hermes/Icarus Memory OS.
 
 Use this when you want Pi to get the same ambient memory behavior Hermes gets from Memory OS - Icarus: retrieve context before an answer, capture useful exchanges afterward, and expose normal Fabric tools.
