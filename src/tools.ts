@@ -4,6 +4,7 @@ import type { PiApi, ToolDefinition } from "./types.js";
 const string = { type: "string" };
 const integer = (minimum = 1, maximum?: number) => ({ type: "integer", minimum, ...(maximum ? { maximum } : {}) });
 const optionalString = string;
+const described = (description: string) => ({ type: "string", description });
 
 function object(properties: Record<string, unknown>, required: string[] = []): Record<string, unknown> {
   return { type: "object", properties, required, additionalProperties: true };
@@ -13,12 +14,49 @@ function jsonResult(value: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }], details: value };
 }
 
+const VERIFIED_TRUE = new Set(["true", "yes", "y", "1", "on"]);
+const VERIFIED_FALSE = new Set(["false", "no", "n", "0", "off", ""]);
+
+type PreparedWrite = { params: Record<string, unknown> } | { error: string };
+
+// Icarus stores verified as the strings "true"/"false" and only counts
+// str(verified).lower() == "true" as verified, so normalize to that contract.
+function prepareFabricWrite(params: Record<string, unknown>): PreparedWrite {
+  if (params.verified === undefined || params.verified === null) return { params };
+
+  let verified: string;
+  if (typeof params.verified === "boolean") verified = params.verified ? "true" : "false";
+  else if (typeof params.verified === "number") verified = params.verified !== 0 ? "true" : "false";
+  else if (typeof params.verified === "string") {
+    const value = params.verified.trim().toLowerCase();
+    if (VERIFIED_TRUE.has(value)) verified = "true";
+    else if (VERIFIED_FALSE.has(value)) verified = "false";
+    else return { error: `verified must be "true" or "false" (or a boolean); got ${JSON.stringify(params.verified)}` };
+  } else {
+    return { error: `verified must be "true" or "false" (or a boolean); got ${JSON.stringify(params.verified)}` };
+  }
+
+  if (verified === "true") {
+    const evidence = typeof params.evidence === "string" ? params.evidence.trim() : "";
+    if (!evidence) {
+      return {
+        error:
+          'verified="true" requires evidence: say how the result was verified (e.g. "npm test passed", "curl returned 200"). Omit verified for work that has not been verified.',
+      };
+    }
+  }
+
+  return { params: { ...params, verified } };
+}
+
 const fabricTools: ToolDefinition[] = [
   {
     name: "fabric_write",
     label: "Fabric Write",
-    description: "Write an entry through Icarus state.write_entry().",
-    promptSnippet: "Use fabric_write to persist important tasks, decisions, reviews, research, and notes to the shared Fabric corpus.",
+    description:
+      "Write an entry through Icarus state.write_entry(). Verification contract: set verified=\"true\" only when you actually verified the result (tests passed, command output checked, deployment confirmed); then you must also provide evidence describing how, and source_tool for the tool that produced the result. Never mark unverified work as verified.",
+    promptSnippet:
+      "Use fabric_write to persist important tasks, decisions, reviews, research, and notes to the shared Fabric corpus. Set verified=\"true\" only for results you actually verified, with evidence of how.",
     parameters: object({
       type: string,
       summary: string,
@@ -31,9 +69,9 @@ const fabricTools: ToolDefinition[] = [
       customer_id: optionalString,
       assigned_to: optionalString,
       training_value: optionalString,
-      verified: optionalString,
-      evidence: optionalString,
-      source_tool: optionalString,
+      verified: { type: "string", enum: ["true", "false"], description: "Set \"true\" only when you verified the result (tests passed, output checked, deployment confirmed). Requires evidence. Omit for unverified work." },
+      evidence: described("How the result was verified, e.g. 'npm test passed' or 'curl returned 200'. Required when verified=\"true\"."),
+      source_tool: described("The tool that produced the result, e.g. 'bash', 'read', 'web_search'."),
       artifact_paths: optionalString,
     }, ["type", "summary", "content"]),
   },
@@ -98,6 +136,11 @@ export function registerTools(pi: PiApi, bridge: IcarusBridge, includeAdmin: boo
     pi.registerTool({
       ...definition,
       async execute(_toolCallId: string, params: Record<string, unknown>) {
+        if (definition.name === "fabric_write") {
+          const prepared = prepareFabricWrite(params);
+          if ("error" in prepared) return jsonResult({ error: prepared.error });
+          params = prepared.params;
+        }
         return jsonResult(await bridge.tool(definition.name, params));
       },
     });

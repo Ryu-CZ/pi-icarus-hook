@@ -80,6 +80,42 @@ test("bridged Icarus tools are pass-through", async (t) => {
   assert.equal(search.count, 1);
 });
 
+test("fabric_write persists verified, evidence, and source_tool frontmatter", async (t) => {
+  const { bridge, fabricDir } = await withBridge(t);
+
+  const write = await bridge.tool("fabric_write", {
+    type: "resolution",
+    summary: "Verified metadata smoke",
+    content: "Unique verified metadata token verifiedmetadataneedle.",
+    status: "completed",
+    training_value: "high",
+    verified: "true",
+    evidence: "node --test passed",
+    source_tool: "bash",
+  }) as Record<string, unknown>;
+
+  assert.equal(write.status, "written");
+  const path = write.path as string;
+  assert.ok(path.endsWith(".md"));
+
+  const text = await readFile(path, "utf8");
+  const frontmatter = text.split("---")[1] ?? "";
+  assert.match(frontmatter, /verified: "true"/);
+  assert.match(frontmatter, /evidence: "node --test passed"/);
+  assert.match(frontmatter, /source_tool: "bash"/);
+
+  const plain = await bridge.tool("fabric_write", {
+    type: "note",
+    summary: "Unverified metadata smoke",
+    content: "Unique unverified metadata token unverifiedmetadataneedle.",
+  }) as Record<string, unknown>;
+
+  const plainText = await readFile(plain.path as string, "utf8");
+  const plainFrontmatter = plainText.split("---")[1] ?? "";
+  assert.doesNotMatch(plainFrontmatter, /verified:/);
+  assert.doesNotMatch(plainFrontmatter, /evidence:/);
+});
+
 test("persistent worker preserves Icarus hook session state", async (t) => {
   const { bridge, fabricDir } = await withBridge(t);
 

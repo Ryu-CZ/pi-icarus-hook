@@ -41,6 +41,8 @@ Requires the [Memory OS](https://github.com/ClaudioDrews/memory-os) ecosystem to
 
 A Pi session starts. `pi-icarus-hook` calls Icarus, receives any relevant session or memory context, and injects it into Pi before the model answers.
 
+At startup, session context is added as a Pi custom message without starting an extra model turn. The first nonempty prompt in each session is marked as the first turn for Icarus; empty or disabled prompts do not consume it. This lifecycle behavior uses the Pi 1.0.0 extension API.
+
 ```text
 User prompt
   -> Pi before_agent_start
@@ -227,7 +229,7 @@ The hook path is the recommended default. The model does not need to remember to
 
 These are regular work-session tools and are safe to expose to Pi agents by default:
 
-- `fabric_write` — write a structured entry into shared Fabric memory.
+- `fabric_write` — write a structured entry into shared Fabric memory. Set `verified: "true"` only for results you actually verified, with `evidence` (how) and `source_tool` (which tool produced the result); the tool rejects `verified` without `evidence`.
 - `fabric_recall` — ranked retrieval of relevant Fabric memories by query.
 - `fabric_search` — literal keyword search across Fabric entries.
 - `fabric_pending` — list open tasks, reviews, and tickets assigned through Fabric.

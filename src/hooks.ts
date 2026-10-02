@@ -44,17 +44,14 @@ function contextMessage(customType: string, content: string, display: boolean): 
   return { message: { customType, content, display } };
 }
 
-function sessionIdFrom(event: Record<string, unknown>, ctx?: Record<string, unknown>): string {
-  const session = event.session || ctx?.session;
-  if (session && typeof session === "object" && typeof (session as Record<string, unknown>).id === "string") {
-    return (session as Record<string, unknown>).id as string;
-  }
-  return typeof event.session_id === "string" ? event.session_id : "";
+function sessionId(ctx: unknown): string {
+  return piContext(ctx).sessionManager?.getSessionId() ?? "";
 }
 
 export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfig): IcarusHookControl {
   let enabled = true;
   let contextVisible = config.hiddenDisplay;
+  let firstPrompt = true;
   const control: IcarusHookControl = {
     isEnabled: () => enabled,
     setEnabled(value, ctx) {
@@ -76,7 +73,8 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
     },
   };
 
-  pi.on("session_start", async (event: unknown, ctx: unknown) => {
+  pi.on("session_start", async (_event: unknown, ctx: unknown) => {
+    firstPrompt = true;
     if (!enabled) {
       setFooterStatus(ctx, undefined);
       return;
@@ -84,10 +82,17 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
     setFooterStatus(ctx, config.footerStatus);
     try {
       const result = await bridge.hook("on_session_start", {
-        session_id: sessionIdFrom(eventRecord(event), eventRecord(ctx)),
+        session_id: sessionId(ctx),
         platform: config.platform,
       }) as HookResult | null;
-      return contextMessage("icarus-session-context", result?.context || "", contextVisible);
+      const startupContext = result?.context || "";
+      if (startupContext.trim()) {
+        pi.sendMessage?.({
+          customType: "icarus-session-context",
+          content: startupContext,
+          display: contextVisible,
+        }, { triggerTurn: false });
+      }
     } catch {
       return;
     }
@@ -102,11 +107,13 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
     try {
       const record = eventRecord(event);
       const prompt = asText(record.prompt ?? record.message ?? record.user_message);
-      if (!prompt) return;
+      if (!prompt.trim()) return;
+      const isFirstPrompt = firstPrompt;
+      firstPrompt = false;
       const result = await bridge.hook("pre_llm_call", {
-        session_id: sessionIdFrom(record),
+        session_id: sessionId(ctx),
         user_message: prompt,
-        is_first_turn: Boolean(record.is_first_turn ?? record.isFirstTurn ?? record.turn === 0),
+        is_first_turn: isFirstPrompt,
       }) as HookResult | null;
       return contextMessage("icarus-memory-context", result?.context || "", contextVisible);
     } catch {
@@ -114,13 +121,13 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
     }
   });
 
-  pi.on("agent_end", async (event: unknown) => {
+  pi.on("agent_end", async (event: unknown, ctx: unknown) => {
     if (!enabled) return;
     try {
       const record = eventRecord(event);
       const messages = record.messages;
       await bridge.hook("post_llm_call", {
-        session_id: sessionIdFrom(record),
+        session_id: sessionId(ctx),
         user_message: latestMessage(messages, "user"),
         assistant_response: latestMessage(messages, "assistant"),
         platform: config.platform,
@@ -130,14 +137,12 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
     }
   });
 
-  pi.on("session_shutdown", async (event: unknown, ctx: unknown) => {
+  pi.on("session_shutdown", async (_event: unknown, ctx: unknown) => {
     try {
       if (!enabled) return;
-      const record = eventRecord(event);
       await bridge.hook("on_session_end", {
-        session_id: sessionIdFrom(record),
+        session_id: sessionId(ctx),
         platform: config.platform,
-        completed: Boolean(record.completed),
       });
     } catch {
       return;

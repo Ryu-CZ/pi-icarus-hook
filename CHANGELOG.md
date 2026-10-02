@@ -11,6 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add README badges for npm, license, and Pi package gallery metadata.
 
+### Changed
+
+- Guide `fabric_write` callers on the verification contract: `verified` is now a `"true"`/`"false"` enum with `evidence` and `source_tool` parameter descriptions, and the tool description instructs agents to mark only actually verified results.
+
+### Fixed
+
+- Send startup context through Pi as a custom message without triggering a model turn, and honor the configured context visibility.
+- Mark the first eligible nonempty prompt as the first turn, resetting this state at session start.
+- Use Pi's session manager ID for every lifecycle hook.
+- Omit the unsupported shutdown `completed` flag.
+- Normalize `fabric_write` `verified` to Icarus's `"true"`/`"false"` contract (booleans and common strings are accepted, ambiguous values are rejected) so frontmatter records `verified: "true"` consistently.
+- Reject `fabric_write` calls with `verified="true"` but no `evidence` instead of persisting ungrounded verified claims.
+
 ## [0.5.1] - 2026-06-18
 
 ### Added

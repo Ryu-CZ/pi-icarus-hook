@@ -26,11 +26,13 @@ export interface ToolDefinition {
 export interface PiApi {
   on: (event: string, handler: (...args: unknown[]) => unknown) => void;
   registerTool: (tool: ToolDefinition & { execute: (toolCallId: string, params: Record<string, unknown>) => Promise<unknown> }) => void;
+  sendMessage?: (message: PiMessage, options?: { triggerTurn?: boolean }) => void;
   registerCommand?: (name: string, command: { description: string; handler: (args: unknown, ctx: unknown) => unknown }) => void;
 }
 
 export interface PiContext {
   cwd?: string;
+  sessionManager?: { getSessionId: () => string };
   ui?: {
     setStatus?: (key: string, value: string | undefined) => void;
     notify?: (message: string, level?: string) => void;
