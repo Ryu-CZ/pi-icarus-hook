@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-10-02
+
 ### Added
 
 - Add README badges for npm, license, and Pi package gallery metadata.
@@ -83,7 +85,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Smoke tests proving tool pass-through and persistent hook session state.
 - README explaining that the package only binds Pi to Icarus and does not reimplement Memory OS behavior.
 
-[Unreleased]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.4.0...v0.4.1
