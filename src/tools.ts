@@ -93,7 +93,7 @@ const fabricTools: ToolDefinition[] = [
     label: "Fabric Search",
     description: "Search Fabric entries through Icarus state.search_entries().",
     promptSnippet: "Use fabric_search for literal search across hot and cold Fabric markdown entries.",
-    parameters: object({ query: string, limit: integer(1, 100) }, ["query"]),
+    parameters: object({ query: string }, ["query"]),
   },
   {
     name: "fabric_pending",

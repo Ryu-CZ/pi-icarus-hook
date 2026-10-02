@@ -182,6 +182,29 @@ function parseVisibility(value: string): boolean | undefined {
   return undefined;
 }
 
+const COMMAND_USAGE = "Usage: /icarus [status|toggle|on|off|config|schema] or /icarus context [status|toggle|show|hide] or /icarus context default [status|show|hide|toggle] [global|project].";
+
+function isDefaultAction(value: string): boolean {
+  return value === "status" || value === "toggle" || parseVisibility(value) !== undefined;
+}
+
+function validDefaultArguments(args: string[]): boolean {
+  if (args.length === 0) return true;
+  if (args.length === 1) return isDefaultAction(args[0]) || parseScope(args[0]) !== undefined;
+  return args.length === 2 && isDefaultAction(args[0]) && parseScope(args[1]) !== undefined;
+}
+
+function isValidCommand(parts: string[]): boolean {
+  const [command = "", subcommand, ...extra] = parts;
+  if (command === "" || ["status", "toggle", "on", "enable", "off", "disable", "config", "schema"].includes(command)) {
+    return parts.length <= 1;
+  }
+  if (command !== "context") return false;
+  if (subcommand === undefined) return true;
+  if (subcommand === "default") return validDefaultArguments(extra);
+  return parts.length === 2 && (subcommand === "status" || subcommand === "toggle" || parseVisibility(subcommand) !== undefined);
+}
+
 async function contextDefaultMessage(parts: string[], config: PiBridgeConfig, hookControl: IcarusHookControl, ctx: unknown): Promise<string | undefined> {
   const cwd = cwdFromContext(ctx);
   const action = parts[2] || "status";
@@ -228,6 +251,11 @@ export function registerConfigIntrospection(pi: PiApi, config: PiBridgeConfig, r
     handler: async (args: unknown, ctx: unknown) => {
       const parts = typeof args === "string" ? args.trim().toLowerCase().split(/\s+/).filter(Boolean) : [];
       const command = parts[0] || "";
+      if (!isValidCommand(parts)) {
+        // Reject malformed scopes here so they cannot fall through to automatic scope selection and write settings.
+        notify(ctx, COMMAND_USAGE, "warning");
+        return COMMAND_USAGE;
+      }
       if (command === "context") {
         if (!hookControl) {
           const message = hookStatusMessage(hookControl);

@@ -104,6 +104,8 @@ Runtime toggles are session-local. Default toggles write settings and apply on n
 /icarus context default hide
 ```
 
+Unknown commands, invalid scopes, and extra arguments show usage guidance without changing hooks or settings.
+
 The read-only agent tool is `icarus_hook_config`.
 
 To hide injected context by default in JSON instead:

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-10-02
+
 ### Added
 
 - Add a persistent-worker regression test confirming recalled reviews and revisions each record usage once, while rejected writes record no usage.
@@ -15,11 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Clarify how to load a development checkout without also loading the npm-installed extension and causing tool conflicts.
 - Document how to select Icarus's Python environment for integration tests and why its PyYAML dependency matters for Fabric references.
+- Stop advertising a `fabric_search` limit argument that Icarus's tool handler does not forward.
 
 ### Fixed
 
 - Mark Fabric validation and backend error responses as failed Pi tool results instead of successful results containing an error message.
 - Honor the legacy `hiddenDisplay` setting when inspecting or toggling the default context visibility, matching startup configuration precedence.
+- Reject invalid `/icarus` commands, scopes, and surplus arguments before changing hooks, context visibility, or settings, and show usage guidance.
 
 ## [0.5.2] - 2026-10-02
 
@@ -99,7 +103,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Smoke tests proving tool pass-through and persistent hook session state.
 - README explaining that the package only binds Pi to Icarus and does not reimplement Memory OS behavior.
 
-[Unreleased]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.5.3...HEAD
+[0.5.3]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.4.1...v0.5.0

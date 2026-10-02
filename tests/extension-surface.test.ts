@@ -212,6 +212,8 @@ test("context default commands persist future startup defaults only", async (t) 
   registerConfigIntrospection(pi, config, false, hookControl);
 
   assert.match(String(await commands.icarus?.("context default status", ctx)), /Startup default is hidden from global settings/);
+  assert.match(String(await commands.icarus?.("context default global", ctx)), /Startup default is hidden from global settings/);
+  assert.match(String(await commands.icarus?.("context default project", ctx)), /Startup default is visible from built-in default/);
   const toggleMessage = String(await commands.icarus?.("context default toggle", ctx));
   assert.match(toggleMessage, /visible by default for future Pi sessions/);
   assert.match(toggleMessage, /Current session is still visible/);
@@ -237,4 +239,58 @@ test("context default commands persist future startup defaults only", async (t) 
 
   const hidden = await handlers.before_agent_start?.({ prompt: "hello", session_id: "s" }, {});
   assert.equal((hidden as { message: { display: boolean } }).message.display, false);
+});
+
+test("invalid icarus command forms warn without toggling or writing settings", async (t) => {
+  const commands: Record<string, (args: unknown, ctx: unknown) => unknown> = {};
+  const root = await mkdtemp(join(tmpdir(), "pi-icarus-hook-invalid-command-"));
+  const agentDir = join(root, "agent");
+  const oldEnv = saveEnv();
+  process.env.PI_CODING_AGENT_DIR = agentDir;
+  t.after(async () => {
+    restoreEnv(oldEnv);
+    await rm(root, { recursive: true, force: true });
+  });
+  const notifications: Array<{ message: string; level?: string }> = [];
+  const effects = { hooks: 0, context: 0 };
+  const config: PiBridgeConfig = {
+    icarusDir: "/tmp/icarus",
+    python: "python3",
+    fabricDir: "/tmp/fabric",
+    agent: "pi-agent",
+    projectId: "pi-icarus-hook",
+    platform: "pi",
+    bindHooks: true,
+    registerTools: false,
+    registerAdminTools: false,
+    hiddenDisplay: true,
+    footerStatus: "🪽 Icarus",
+    callTimeoutMs: 30000,
+  };
+  const pi: PiApi = {
+    on() {},
+    registerCommand(name, command) { commands[name] = command.handler; },
+    registerTool() {},
+  };
+  const hookControl = {
+    isEnabled: () => true,
+    setEnabled() { effects.hooks += 1; },
+    toggle() { effects.hooks += 1; return false; },
+    isContextVisible: () => true,
+    setContextVisible() { effects.context += 1; },
+    toggleContextVisible() { effects.context += 1; return false; },
+  };
+  const ctx = { cwd: root, ui: { notify(message: string, level?: string) { notifications.push({ message, level }); } } };
+  registerConfigIntrospection(pi, config, false, hookControl);
+
+  for (const input of ["nonsense", "on extra", "context nonsense", "context hide extra", "context default hide nonsense", "context default hide global extra", "schema extra"]) {
+    const result = await commands.icarus?.(input, ctx);
+    assert.match(String(result), /Usage:/, input);
+  }
+
+  assert.deepEqual(effects, { hooks: 0, context: 0 });
+  assert.ok(notifications.every(({ level }) => level === "warning"));
+  assert.equal(notifications.length, 7);
+  await assert.rejects(readFile(join(root, ".pi", "settings.json")));
+  await assert.rejects(readFile(join(agentDir, "settings.json")));
 });
