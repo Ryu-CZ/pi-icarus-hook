@@ -182,7 +182,7 @@ function parseVisibility(value: string): boolean | undefined {
   return undefined;
 }
 
-const COMMAND_USAGE = "Usage: /icarus [status|toggle|on|off|config|schema] or /icarus context [status|toggle|show|hide] or /icarus context default [status|show|hide|toggle] [global|project].";
+const COMMAND_USAGE = "Usage: /icarus [status|toggle|on|enable|off|disable|config|schema] or /icarus context [status|toggle|show|visible|hide|hidden|on|off|enable|disable] or /icarus context default [status|toggle|show|visible|hide|hidden|on|off|enable|disable] [global|user|project|local].";
 
 function isDefaultAction(value: string): boolean {
   return value === "status" || value === "toggle" || parseVisibility(value) !== undefined;
