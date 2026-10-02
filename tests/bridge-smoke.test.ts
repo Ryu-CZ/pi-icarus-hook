@@ -128,7 +128,9 @@ test("persistent worker logs recalled review and revision usage once and skips r
   }) as Record<string, unknown>;
   assert.equal(original.status, "written");
   const originalText = await readFile(original.path as string, "utf8");
+  const originalAgent = /^agent: "([^"]+)"$/m.exec(originalText)?.[1];
   const originalId = /^id: "([^"]+)"$/m.exec(originalText)?.[1];
+  assert.ok(originalAgent, "written entry must have an agent");
   assert.ok(originalId, "written entry must have an id");
 
   // Seed recall deterministically while keeping both calls in the bridge's Python worker.
@@ -140,7 +142,7 @@ test("persistent worker logs recalled review and revision usage once and skips r
     content: "Reviewed the recalled entry.",
     review_of: `pi-smoke:${originalId}`,
   }) as Record<string, unknown>;
-  assert.equal(review.status, "written");
+  assert.equal(review.status, "written", `review write failed for ${originalAgent}:${originalId}: ${JSON.stringify(review)}`);
 
   const revision = await bridge.tool("fabric_write", {
     type: "resolution",

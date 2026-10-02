@@ -178,6 +178,10 @@ test("context default commands persist future startup defaults only", async (t) 
     await rm(root, { recursive: true, force: true });
   });
   process.env.PI_CODING_AGENT_DIR = agentDir;
+  await mkdir(agentDir, { recursive: true });
+  await writeFile(join(agentDir, "settings.json"), JSON.stringify({
+    piIcarusHook: { hiddenDisplay: false, unrelated: "preserved" },
+  }));
 
   const config: PiBridgeConfig = {
     icarusDir: "/tmp/icarus",
@@ -207,7 +211,16 @@ test("context default commands persist future startup defaults only", async (t) 
   const hookControl = bindHooks(pi, bridge as never, config);
   registerConfigIntrospection(pi, config, false, hookControl);
 
-  assert.match(String(await commands.icarus?.("context default status", ctx)), /Startup default is visible from built-in default/);
+  assert.match(String(await commands.icarus?.("context default status", ctx)), /Startup default is hidden from global settings/);
+  const toggleMessage = String(await commands.icarus?.("context default toggle", ctx));
+  assert.match(toggleMessage, /visible by default for future Pi sessions/);
+  assert.match(toggleMessage, /Current session is still visible/);
+  const currentSession = await handlers.before_agent_start?.({ prompt: "hello", session_id: "s" }, {});
+  assert.equal((currentSession as { message: { display: boolean } }).message.display, true);
+  const toggledSettings = JSON.parse(await readFile(join(agentDir, "settings.json"), "utf8")) as Record<string, { contextDisplay: boolean; hiddenDisplay: boolean; unrelated: string }>;
+  assert.equal(toggledSettings.piIcarusHook.contextDisplay, true);
+  assert.equal(toggledSettings.piIcarusHook.hiddenDisplay, false);
+  assert.equal(toggledSettings.piIcarusHook.unrelated, "preserved");
   assert.match(String(await commands.icarus?.("context default hide", ctx)), /future Pi sessions/);
 
   const globalSettings = JSON.parse(await readFile(join(agentDir, "settings.json"), "utf8")) as Record<string, { contextDisplay: boolean }>;

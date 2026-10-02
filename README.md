@@ -320,6 +320,15 @@ npm test
 
 The smoke tests verify that Fabric tools pass through to Icarus and that hook session state persists across calls in the Python worker.
 
+For integration tests, select the Icarus checkout and its Python environment:
+
+```bash
+ICARUS_DIR=/path/to/memory-os/icarus \
+ICARUS_PYTHON=/path/to/memory-os/.venv/bin/python npm test
+```
+
+The test runner defaults to `~/.hermes/plugins/icarus` and `python3`; it does not read Pi settings. Use an environment with Icarus's dependencies installed, including PyYAML: without it, quoted Fabric references can fail to resolve even when the referenced entry exists.
+
 ## Developer install
 
 From a local checkout:

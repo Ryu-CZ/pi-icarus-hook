@@ -5,6 +5,10 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 export type SettingsScope = "global" | "project";
 
 const PACKAGE_KEYS = ["piIcarusHook", "pi-icarus-hook", "icarusHook"] as const;
+const BOOLEAN_SETTING_ALIASES: Record<string, readonly string[]> = {
+  // Existing users may still have this key; command inspection must match config loading.
+  contextDisplay: ["hiddenDisplay"],
+};
 
 interface SettingsDocument {
   [key: string]: unknown;
@@ -70,9 +74,12 @@ async function readSettingFromScope(scope: SettingsScope, cwd: string, settingKe
   const path = settingsPath(scope, cwd);
   const document = await readSettingsDocument(path);
   const existing = packageSection(document);
-  if (!existing || existing.section[settingKey] === undefined) return undefined;
+  if (!existing) return undefined;
+  const configuredKey = [settingKey, ...(BOOLEAN_SETTING_ALIASES[settingKey] ?? [])]
+    .find((key) => existing.section[key] !== undefined);
+  if (!configuredKey) return undefined;
   return {
-    value: boolValue(existing.section[settingKey], true),
+    value: boolValue(existing.section[configuredKey], true),
     source: scope,
     path,
     packageKey: existing.key,

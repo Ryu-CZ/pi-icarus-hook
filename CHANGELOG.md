@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Clarify how to load a development checkout without also loading the npm-installed extension and causing tool conflicts.
+- Document how to select Icarus's Python environment for integration tests and why its PyYAML dependency matters for Fabric references.
+
+### Fixed
+
+- Mark Fabric validation and backend error responses as failed Pi tool results instead of successful results containing an error message.
+- Honor the legacy `hiddenDisplay` setting when inspecting or toggling the default context visibility, matching startup configuration precedence.
 
 ## [0.5.2] - 2026-10-02
 

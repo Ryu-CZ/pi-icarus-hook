@@ -11,7 +11,13 @@ function object(properties: Record<string, unknown>, required: string[] = []): R
 }
 
 function jsonResult(value: unknown) {
-  return { content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }], details: value };
+  const isError = typeof value === "object" && value !== null && !Array.isArray(value) && "error" in value;
+  // Python tool errors are JSON values, so translate them at Pi's tool-result boundary.
+  return {
+    content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }],
+    details: value,
+    ...(isError ? { isError: true } : {}),
+  };
 }
 
 const VERIFIED_TRUE = new Set(["true", "yes", "y", "1", "on"]);

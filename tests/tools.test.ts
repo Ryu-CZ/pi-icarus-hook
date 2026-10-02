@@ -11,7 +11,7 @@ interface BridgeCall {
 
 type RegisteredTool = ToolDefinition & { execute: (id: string, params: Record<string, unknown>) => Promise<unknown> };
 
-function setup(): {
+function setup(toolResult: unknown = { status: "written", path: "/fabric/entry.md" }): {
   tools: Map<string, RegisteredTool>;
   calls: BridgeCall[];
 } {
@@ -19,7 +19,7 @@ function setup(): {
   const bridge = {
     tool: async (name: string, params: Record<string, unknown>) => {
       calls.push({ name, params });
-      return { status: "written", path: "/fabric/entry.md" };
+      return toolResult;
     },
   } as unknown as IcarusBridge;
   const tools = new Map<string, RegisteredTool>();
@@ -91,10 +91,11 @@ test("fabric_write rejects verified=true without evidence", async () => {
     summary: "s",
     content: "c",
     verified: true,
-  }) as { details: { error?: string } };
+  }) as { details: { error?: string }; isError?: boolean };
 
   assert.equal(calls.length, 0, "nothing is written without evidence");
   assert.match(result.details.error ?? "", /requires evidence/);
+  assert.equal(result.isError, true);
 });
 
 test("fabric_write rejects ambiguous verified values instead of guessing", async () => {
@@ -108,6 +109,32 @@ test("fabric_write rejects ambiguous verified values instead of guessing", async
 
   assert.equal(calls.length, 0);
   assert.match(result.details.error ?? "", /verified must be/);
+});
+
+test("Icarus error envelopes are marked as tool errors", async () => {
+  const { tools } = setup({ error: "No query provided" });
+  const result = await tools.get("fabric_search")!.execute("1", { query: "" }) as {
+    content: Array<{ type: string; text: string }>;
+    details: { error?: string };
+    isError?: boolean;
+  };
+
+  assert.equal(result.isError, true);
+  assert.equal(result.details.error, "No query provided");
+  assert.match(result.content[0].text, /No query provided/);
+});
+
+test("successful Icarus results retain their existing result shape", async () => {
+  const { tools } = setup({ query: "needle", count: 0, results: [] });
+  const result = await tools.get("fabric_search")!.execute("1", { query: "needle" }) as {
+    content: Array<{ type: string; text: string }>;
+    details: { query?: string; count?: number; results?: unknown[] };
+    isError?: boolean;
+  };
+
+  assert.equal(result.isError, undefined);
+  assert.deepEqual(result.details, { query: "needle", count: 0, results: [] });
+  assert.match(result.content[0].text, /"results": \[\]/);
 });
 
 test("other fabric tools stay pass-through", async () => {
