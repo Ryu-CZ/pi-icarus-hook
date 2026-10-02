@@ -335,6 +335,8 @@ Load this checkout directly:
 pi --no-extensions -e ./src/index.ts
 ```
 
+Use `--no-extensions` when the npm-installed copy is enabled in Pi settings; otherwise Pi may load both copies and report a duplicate extension.
+
 For a one-shot local smoke test without other installed extensions:
 
 ```bash

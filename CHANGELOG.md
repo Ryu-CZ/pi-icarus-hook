@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add a persistent-worker regression test confirming recalled reviews and revisions each record usage once, while rejected writes record no usage.
+
+### Changed
+
+- Clarify how to load a development checkout without also loading the npm-installed extension and causing tool conflicts.
+
 ## [0.5.2] - 2026-10-02
 
 ### Added

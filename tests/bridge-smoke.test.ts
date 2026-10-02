@@ -116,6 +116,60 @@ test("fabric_write persists verified, evidence, and source_tool frontmatter", as
   assert.doesNotMatch(plainFrontmatter, /evidence:/);
 });
 
+test("persistent worker logs recalled review and revision usage once and skips rejected writes", async (t) => {
+  const { bridge, fabricDir, root } = await withBridge(t);
+  const sessionId = "sess-usage-telemetry";
+  await bridge.hook("on_session_start", { session_id: sessionId, platform: "pi" });
+
+  const original = await bridge.tool("fabric_write", {
+    type: "note",
+    summary: "Telemetry usage target",
+    content: "Entry used to verify bridge usage telemetry.",
+  }) as Record<string, unknown>;
+  assert.equal(original.status, "written");
+  const originalText = await readFile(original.path as string, "utf8");
+  const originalId = /^id: "([^"]+)"$/m.exec(originalText)?.[1];
+  assert.ok(originalId, "written entry must have an id");
+
+  // Seed recall deterministically while keeping both calls in the bridge's Python worker.
+  await bridge.state("log_recall", "telemetry test recall", [{ id: originalId, summary: "Telemetry usage target" }]);
+
+  const review = await bridge.tool("fabric_write", {
+    type: "review",
+    summary: "Telemetry review",
+    content: "Reviewed the recalled entry.",
+    review_of: `pi-smoke:${originalId}`,
+  }) as Record<string, unknown>;
+  assert.equal(review.status, "written");
+
+  const revision = await bridge.tool("fabric_write", {
+    type: "resolution",
+    summary: "Telemetry revision",
+    content: "Revised the recalled entry.",
+    revises: `pi-smoke:${originalId}`,
+  }) as Record<string, unknown>;
+  assert.equal(revision.status, "written");
+
+  const rejected = await bridge.tool("fabric_write", {
+    type: "review",
+    summary: "Rejected telemetry review",
+    content: "This write is rejected because its training value is invalid.",
+    review_of: `pi-smoke:${originalId}`,
+    training_value: "invalid",
+  }) as Record<string, unknown>;
+  assert.equal(typeof rejected.error, "string");
+
+  const telemetryPath = join(root, ".hermes-pi-smoke", ".icarus-telemetry.jsonl");
+  const events = (await readFile(telemetryPath, "utf8"))
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line) as Record<string, unknown>);
+  const usage = events.filter((event) => event.event === "usage" && event.entry_id === originalId);
+  assert.deepEqual(usage.map((event) => event.action).sort(), ["reviewed", "revised"]);
+  assert.ok(usage.every((event) => event.session_id === sessionId));
+  assert.equal((await readdir(fabricDir)).filter((file) => file.endsWith(".md")).length, 3);
+});
+
 test("persistent worker preserves Icarus hook session state", async (t) => {
   const { bridge, fabricDir } = await withBridge(t);
 
