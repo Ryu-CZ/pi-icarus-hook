@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix conversation memory handling for Pi 1.3.0 compatibility.
+- Save conversation memory only after Pi finishes answering, avoiding premature saves during retries and automatic continuations. Cancelled, failed, and truncated answers are no longer saved.
+- Preserve the original request when Pi retries an answer, and include follow-up messages queued during the same response.
+- Stop treating automated extension messages as user requests for memory recall and saving.
+
 ## [0.5.3] - 2026-10-02
 
 ### Added

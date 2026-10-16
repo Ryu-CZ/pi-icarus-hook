@@ -221,8 +221,9 @@ These run automatically when Pi emits lifecycle events:
 | Pi event | Icarus hook | Behavior |
 |---|---|---|
 | `session_start` | `icarus.hooks.on_session_start()` | Injects startup context when returned |
-| `before_agent_start` | `icarus.hooks.pre_llm_call()` | Injects per-turn memory context when returned |
-| `agent_end` | `icarus.hooks.post_llm_call()` | Captures decisions and updates Icarus session state |
+| `before_agent_start` | `icarus.hooks.pre_llm_call()` | Injects memory once per submitted user run; skips custom-triggered runs |
+| `agent_end` | Buffer only | Retains user messages and the latest assistant across retries/continuations |
+| `agent_settled` | `icarus.hooks.post_llm_call()` | Captures once after successful settlement; skips aborted, errored, truncated, and custom-only runs. Queued user texts are grouped with the final response |
 | `session_shutdown` | `icarus.hooks.on_session_end()` | Scores and persists the session, then closes the worker |
 
 The hook path is the recommended default. The model does not need to remember to call a tool before every answer; memory is injected as infrastructure. Use `/icarus off` to stop loading/saving memory for the current session, or `/icarus context hide` to keep hooks active but hide injected context.

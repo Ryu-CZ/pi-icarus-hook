@@ -94,7 +94,7 @@ test("startup context skips empty text and honors visible display", async () => 
 test("before_agent_start tracks eligible prompts and resets at session start", async () => {
   const fake = setup({ pre_llm_call: { context: "memory" }, on_session_start: {} });
   const ctx = fake.ctx("session-a");
-  const event = (prompt: string) => ({ type: "before_agent_start", prompt });
+  const event = (prompt: string) => ({ type: "before_agent_start", messageType: "user", prompt });
 
   fake.control.setEnabled(false);
   await fake.handlers.before_agent_start?.(event("disabled prompt"), ctx);
@@ -128,14 +128,16 @@ test("each lifecycle hook uses the session manager ID and shutdown omits complet
   const ctx = fake.ctx("manager-session-id");
 
   await fake.handlers.session_start?.({ type: "session_start", reason: "new" }, ctx);
-  await fake.handlers.before_agent_start?.({ type: "before_agent_start", prompt: "hello" }, ctx);
+  await fake.handlers.before_agent_start?.({ type: "before_agent_start", messageType: "user", prompt: "hello" }, ctx);
   await fake.handlers.agent_end?.({
     type: "agent_end",
     messages: [
       { role: "user", content: "hello" },
-      { role: "assistant", content: "world" },
+      { role: "assistant", content: "world", stopReason: "stop" },
     ],
   }, ctx);
+  assert.equal(fake.calls.some((call) => call.name === "post_llm_call"), false);
+  await fake.handlers.agent_settled?.({ type: "agent_settled", aborted: false }, ctx);
   await fake.handlers.session_shutdown?.({ type: "session_shutdown", reason: "quit" }, ctx);
 
   assert.deepEqual(fake.calls.map((call) => call.payload.session_id), [
@@ -163,7 +165,7 @@ test("bridge failures fail open and shutdown still closes the bridge", async () 
   const ctx = fake.ctx("session-a");
 
   assert.equal(await fake.handlers.session_start?.({ type: "session_start", reason: "startup" }, ctx), undefined);
-  assert.equal(await fake.handlers.before_agent_start?.({ type: "before_agent_start", prompt: "hello" }, ctx), undefined);
+  assert.equal(await fake.handlers.before_agent_start?.({ type: "before_agent_start", messageType: "user", prompt: "hello" }, ctx), undefined);
   assert.equal(await fake.handlers.agent_end?.({ type: "agent_end", messages: [] }, ctx), undefined);
   assert.equal(await fake.handlers.session_shutdown?.({ type: "session_shutdown" }, ctx), undefined);
   assert.equal(fake.closed(), 1);

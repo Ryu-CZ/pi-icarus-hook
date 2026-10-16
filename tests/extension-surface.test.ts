@@ -69,7 +69,7 @@ test("extension registers hook bindings and normal fabric tools", async (t) => {
 
   await handlers.before_agent_start?.({}, ctx);
 
-  assert.deepEqual(events, ["session_start", "before_agent_start", "agent_end", "session_shutdown"]);
+  assert.deepEqual(events, ["session_start", "before_agent_start", "agent_end", "agent_settled", "session_shutdown"]);
   assert.deepEqual(commands, ["icarus"]);
   assert.equal(statuses["icarus"], "🪽 Icarus");
   assert.match(String(await commandHandlers["icarus"]?.("", ctx)), /hooks are off/);
@@ -155,15 +155,15 @@ test("runtime context visibility controls injected message display", async () =>
   const hookControl = bindHooks(pi, bridge as never, config);
   registerConfigIntrospection(pi, config, false, hookControl);
 
-  const visible = await handlers.before_agent_start?.({ prompt: "hello", session_id: "s" }, {});
+  const visible = await handlers.before_agent_start?.({ messageType: "user", prompt: "hello", session_id: "s" }, {});
   assert.equal((visible as { message: { display: boolean } }).message.display, true);
 
   assert.match(String(await commands.icarus?.("context hide", {})), /hidden/);
-  const hidden = await handlers.before_agent_start?.({ prompt: "hello", session_id: "s" }, {});
+  const hidden = await handlers.before_agent_start?.({ messageType: "user", prompt: "hello", session_id: "s" }, {});
   assert.equal((hidden as { message: { display: boolean } }).message.display, false);
 
   assert.match(String(await commands.icarus?.("context", {})), /visible/);
-  const visibleAgain = await handlers.before_agent_start?.({ prompt: "hello", session_id: "s" }, {});
+  const visibleAgain = await handlers.before_agent_start?.({ messageType: "user", prompt: "hello", session_id: "s" }, {});
   assert.equal((visibleAgain as { message: { display: boolean } }).message.display, true);
 });
 
@@ -217,7 +217,7 @@ test("context default commands persist future startup defaults only", async (t) 
   const toggleMessage = String(await commands.icarus?.("context default toggle", ctx));
   assert.match(toggleMessage, /visible by default for future Pi sessions/);
   assert.match(toggleMessage, /Current session is still visible/);
-  const currentSession = await handlers.before_agent_start?.({ prompt: "hello", session_id: "s" }, {});
+  const currentSession = await handlers.before_agent_start?.({ messageType: "user", prompt: "hello", session_id: "s" }, {});
   assert.equal((currentSession as { message: { display: boolean } }).message.display, true);
   const toggledSettings = JSON.parse(await readFile(join(agentDir, "settings.json"), "utf8")) as Record<string, { contextDisplay: boolean; hiddenDisplay: boolean; unrelated: string }>;
   assert.equal(toggledSettings.piIcarusHook.contextDisplay, true);
@@ -228,7 +228,7 @@ test("context default commands persist future startup defaults only", async (t) 
   const globalSettings = JSON.parse(await readFile(join(agentDir, "settings.json"), "utf8")) as Record<string, { contextDisplay: boolean }>;
   assert.equal(globalSettings.piIcarusHook.contextDisplay, false);
 
-  const visible = await handlers.before_agent_start?.({ prompt: "hello", session_id: "s" }, {});
+  const visible = await handlers.before_agent_start?.({ messageType: "user", prompt: "hello", session_id: "s" }, {});
   assert.equal((visible as { message: { display: boolean } }).message.display, true);
 
   assert.match(String(await commands.icarus?.("context hide", ctx)), /hidden/);
@@ -237,7 +237,7 @@ test("context default commands persist future startup defaults only", async (t) 
   const projectSettings = JSON.parse(await readFile(join(root, ".pi", "settings.json"), "utf8")) as Record<string, { contextDisplay: boolean }>;
   assert.equal(projectSettings.piIcarusHook.contextDisplay, true);
 
-  const hidden = await handlers.before_agent_start?.({ prompt: "hello", session_id: "s" }, {});
+  const hidden = await handlers.before_agent_start?.({ messageType: "user", prompt: "hello", session_id: "s" }, {});
   assert.equal((hidden as { message: { display: boolean } }).message.display, false);
 });
 

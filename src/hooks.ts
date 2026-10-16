@@ -14,15 +14,6 @@ function asText(value: unknown): string {
   return "";
 }
 
-function latestMessage(messages: unknown, role: string): string {
-  if (!Array.isArray(messages)) return "";
-  for (let i = messages.length - 1; i >= 0; i -= 1) {
-    const message = messages[i] as Record<string, unknown> | undefined;
-    if (message?.role === role) return asText(message.content);
-  }
-  return "";
-}
-
 function eventRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? value as Record<string, unknown> : {};
 }
@@ -52,6 +43,7 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
   let enabled = true;
   let contextVisible = config.hiddenDisplay;
   let firstPrompt = true;
+  let pending: { prompt: string; users: string[]; assistant?: Record<string, unknown> } | undefined;
   const control: IcarusHookControl = {
     isEnabled: () => enabled,
     setEnabled(value, ctx) {
@@ -75,6 +67,7 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
 
   pi.on("session_start", async (_event: unknown, ctx: unknown) => {
     firstPrompt = true;
+    pending = undefined;
     if (!enabled) {
       setFooterStatus(ctx, undefined);
       return;
@@ -99,6 +92,7 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
   });
 
   pi.on("before_agent_start", async (event: unknown, ctx: unknown) => {
+    pending = undefined;
     if (!enabled) {
       setFooterStatus(ctx, undefined);
       return;
@@ -106,8 +100,10 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
     setFooterStatus(ctx, config.footerStatus);
     try {
       const record = eventRecord(event);
-      const prompt = asText(record.prompt ?? record.message ?? record.user_message);
+      if (record.messageType !== "user") return;
+      const prompt = asText(record.prompt);
       if (!prompt.trim()) return;
+      pending = { prompt, users: [] };
       const isFirstPrompt = firstPrompt;
       firstPrompt = false;
       const result = await bridge.hook("pre_llm_call", {
@@ -121,15 +117,33 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
     }
   });
 
-  pi.on("agent_end", async (event: unknown, ctx: unknown) => {
-    if (!enabled) return;
+  pi.on("agent_end", (event: unknown) => {
+    if (!pending) return;
+    const messages = eventRecord(event).messages;
+    if (!Array.isArray(messages)) return;
+    for (const value of messages) {
+      const message = eventRecord(value);
+      if (message.role === "user") {
+        const text = asText(message.content);
+        if (text.trim()) pending.users.push(text);
+      } else if (message.role === "assistant") {
+        pending.assistant = message;
+      }
+    }
+  });
+
+  pi.on("agent_settled", async (event: unknown, ctx: unknown) => {
+    const run = pending;
+    pending = undefined;
+    if (!enabled || !run || eventRecord(event).aborted) return;
+    if (run.assistant?.stopReason !== "stop") return;
+    const response = asText(run.assistant.content);
+    if (!response.trim()) return;
     try {
-      const record = eventRecord(event);
-      const messages = record.messages;
       await bridge.hook("post_llm_call", {
         session_id: sessionId(ctx),
-        user_message: latestMessage(messages, "user"),
-        assistant_response: latestMessage(messages, "assistant"),
+        user_message: run.users.length ? run.users.join("\n\n") : run.prompt,
+        assistant_response: response,
         platform: config.platform,
       });
     } catch {
@@ -138,6 +152,7 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
   });
 
   pi.on("session_shutdown", async (_event: unknown, ctx: unknown) => {
+    pending = undefined;
     try {
       if (!enabled) return;
       await bridge.hook("on_session_end", {
