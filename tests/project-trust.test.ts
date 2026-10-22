@@ -228,4 +228,3 @@ for (const trusted of [false, true]) {
     }
   });
 }
-
