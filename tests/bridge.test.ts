@@ -1,13 +1,15 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
+import { getEventListeners } from "node:events";
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, join, relative } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
 import { IcarusBridge } from "../src/bridge.js";
-import type { PiBridgeConfig } from "../src/types.js";
+import type { PiApi, PiBridgeConfig } from "../src/types.js";
+import { registerTools } from "../src/tools.js";
 
 const python = process.env.ICARUS_PYTHON || "python3";
 
@@ -32,6 +34,19 @@ def slow(args):
         f.write("written\\n")
     return "written"
 
+def fabric_search(args):
+    if args.get("started"):
+        with open(args["started"], "w") as f:
+            f.write("started")
+        while not os.path.exists(args["release"]):
+            time.sleep(0.005)
+    return args
+
+def fabric_write(args):
+    with open(args["marker"], "w") as f:
+        f.write("mutation")
+    return "written"
+
 def partial_exit(args):
     os.write(1, b'{"id":')
     os._exit(1)
@@ -45,6 +60,110 @@ def partial_exit(args):
   t.after(async () => { bridge.close(); await rm(root, { recursive: true, force: true }); });
   return { root, icarusDir, config, bridge };
 }
+
+function registeredTools(bridge: IcarusBridge) {
+  const tools = new Map<string, Parameters<PiApi["registerTool"]>[0]>();
+  registerTools({ on() { return () => {}; }, registerTool(tool) { tools.set(tool.name, tool as Parameters<PiApi["registerTool"]>[0]); } }, bridge, false);
+  return (name: string, params: Record<string, unknown>, signal?: AbortSignal) =>
+    tools.get(name)!.execute("test", params, signal, undefined, {} as never);
+}
+
+test("already-aborted tool calls never start a worker or submit a mutation", async (t) => {
+  const { root, icarusDir, bridge } = await fixture(t);
+  const startup = join(root, "startup");
+  const marker = join(root, "mutation");
+  await writeFile(join(icarusDir, "__init__.py"), `with open(${JSON.stringify(startup)}, "w") as f: f.write("started")\n`);
+  const execute = registeredTools(bridge);
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(execute("fabric_write", { marker }, controller.signal), /abort/i);
+  assert.equal(existsSync(startup), false);
+  assert.equal(existsSync(marker), false);
+  assert.equal(getEventListeners(controller.signal, "abort").length, 0);
+});
+
+test("aborting a queued write retires its worker without mutation or replay, then recovers", async (t) => {
+  const { root, bridge } = await fixture(t);
+  const execute = registeredTools(bridge);
+  const started = join(root, "started");
+  const release = join(root, "release");
+  const marker = join(root, "mutation");
+  const reader = new AbortController();
+  const writer = new AbortController();
+  const read = execute("fabric_search", { started, release }, reader.signal);
+  const readOutcome = Promise.allSettled([read]);
+  const deadline = Date.now() + 2000;
+  while (!existsSync(started) && Date.now() < deadline) await delay(5);
+  assert.equal(existsSync(started), true, "Python read must start before queueing the write");
+  const write = execute("fabric_write", { marker }, writer.signal);
+  const writeOutcome = Promise.allSettled([write]);
+  writer.abort();
+  // Unblock the old worker if cancellation was ignored; red must finish without a timeout.
+  await writeFile(release, "release");
+  for (const result of [...await readOutcome, ...await writeOutcome]) {
+    assert.equal(result.status, "rejected");
+    if (result.status === "rejected") assert.match(result.reason.message, /abort.*indeterminate.*session state.*not replayed/i);
+  }
+  assert.equal(existsSync(marker), false);
+  assert.equal(getEventListeners(reader.signal, "abort").length, 0);
+  assert.equal(getEventListeners(writer.signal, "abort").length, 0);
+  const fresh = execute("fabric_search", { healthy: true });
+  reader.abort(); // The retired generation must not affect its replacement.
+  assert.deepEqual((await fresh).details, { healthy: true });
+  assert.equal(existsSync(marker), false);
+});
+
+test("settled tool calls remove abort listeners on success and Python failure", async (t) => {
+  const { bridge } = await fixture(t);
+  const execute = registeredTools(bridge);
+  const success = new AbortController();
+  await execute("fabric_search", { healthy: true }, success.signal);
+  assert.equal(getEventListeners(success.signal, "abort").length, 0);
+  const failure = new AbortController();
+  await assert.rejects(execute("fabric_write", {}, failure.signal));
+  assert.equal(getEventListeners(failure.signal, "abort").length, 0);
+  const next = execute("fabric_search", { healthy: true });
+  success.abort();
+  failure.abort();
+  assert.deepEqual((await next).details, { healthy: true });
+});
+
+for (const reason of ["timeout", "close", "exit", "spawn"] as const) {
+  test(`${reason} retirement removes cancellation listeners and allows recovery`, async (t) => {
+    const { root, config, bridge } = await fixture(t);
+    const controller = new AbortController();
+    if (reason === "spawn") config.python = join(root, "missing-python");
+    if (reason === "timeout") config.callTimeoutMs = 50;
+    const call = bridge.tool(reason === "exit" ? "partial_exit" : "fabric_search", {
+      started: join(root, "started"), release: join(root, "never-release"),
+    }, controller.signal);
+    const rejected = assert.rejects(call);
+    if (reason === "close") bridge.close();
+    await rejected;
+    assert.equal(getEventListeners(controller.signal, "abort").length, 0);
+    config.python = python;
+    config.callTimeoutMs = 3000;
+    const next = bridge.tool("echo", { recovered: true });
+    controller.abort();
+    assert.deepEqual(await next, { recovered: true });
+  });
+}
+
+test("an abort during listener registration rejects before writing to the worker", async (t) => {
+  const { root, bridge } = await fixture(t);
+  const controller = new AbortController();
+  const signal = controller.signal;
+  const add = signal.addEventListener.bind(signal);
+  t.mock.method(signal, "addEventListener", (...args: Parameters<typeof add>) => {
+    add(...args);
+    controller.abort();
+  });
+  const marker = join(root, "never-written");
+  await assert.rejects(bridge.tool("fabric_write", { marker }, signal), /abort/i);
+  assert.equal(getEventListeners(signal, "abort").length, 0);
+  assert.equal(existsSync(marker), false);
+  assert.deepEqual(await bridge.tool("echo", { recovered: true }), { recovered: true });
+});
 
 test("worker pipe failure rejects without an unhandled stream error crashing the host", async (t) => {
   const { config } = await fixture(t);

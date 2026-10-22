@@ -25,6 +25,7 @@ interface PendingCall {
   resolve: (value: unknown) => void;
   reject: (reason?: unknown) => void;
   timer: NodeJS.Timeout;
+  removeAbortListener: () => void;
 }
 
 interface WorkerState {
@@ -98,12 +99,12 @@ export class IcarusBridge {
 
   constructor(private readonly config: PiBridgeConfig) {}
 
-  async hook(name: string, kwargs: Record<string, unknown> = {}): Promise<unknown> {
-    return this.call({ module: "hooks", function: name, kwargs });
+  async hook(name: string, kwargs: Record<string, unknown> = {}, signal?: AbortSignal): Promise<unknown> {
+    return this.call({ module: "hooks", function: name, kwargs }, signal);
   }
 
-  async tool(name: string, params: Record<string, unknown> = {}): Promise<unknown> {
-    return this.call({ module: "tools", function: name, args: [params] });
+  async tool(name: string, params: Record<string, unknown> = {}, signal?: AbortSignal): Promise<unknown> {
+    return this.call({ module: "tools", function: name, args: [params] }, signal);
   }
 
   async state(name: string, ...args: unknown[]): Promise<unknown> {
@@ -114,7 +115,8 @@ export class IcarusBridge {
     if (this.worker) this.retire(this.worker, new Error("Icarus worker closed before calls completed"));
   }
 
-  private call(request: Omit<WorkerRequest, "id">): Promise<unknown> {
+  private call(request: Omit<WorkerRequest, "id">, signal?: AbortSignal): Promise<unknown> {
+    if (signal?.aborted) return Promise.reject(new Error("Icarus call aborted before submission"));
     const id = this.nextId++;
     const payload: WorkerRequest = { id, ...request };
     const line = `${JSON.stringify(payload)}\n`;
@@ -127,10 +129,23 @@ export class IcarusBridge {
         ));
       }, this.config.callTimeoutMs);
 
-      worker.pending.set(id, { resolve, reject, timer });
-      worker.child.stdin.write(line, (error) => {
-        if (error) this.retire(worker, error);
-      });
+      const onAbort = () => this.retire(worker, new Error(
+        `Icarus call aborted: ${request.module}.${request.function}; outcome may be indeterminate. Worker session state was reset; calls were not replayed.`,
+      ));
+      const removeAbortListener = () => signal?.removeEventListener("abort", onAbort);
+      worker.pending.set(id, { resolve, reject, timer, removeAbortListener });
+      signal?.addEventListener("abort", onAbort, { once: true });
+      if (signal?.aborted) {
+        onAbort();
+        return;
+      }
+      try {
+        worker.child.stdin.write(line, (error) => {
+          if (error) this.retire(worker, error);
+        });
+      } catch (error) {
+        this.retire(worker, error instanceof Error ? error : new Error(String(error)));
+      }
     });
   }
 
@@ -207,6 +222,7 @@ export class IcarusBridge {
     if (!pending) return;
     worker.pending.delete(response.id);
     clearTimeout(pending.timer);
+    pending.removeAbortListener();
 
     if (response.ok) {
       pending.resolve(response.result);
@@ -221,11 +237,12 @@ export class IcarusBridge {
     if (worker.retired) return;
     worker.retired = true;
     if (this.worker === worker) this.worker = null;
-    // A deadline must stop the serial queue, not merely discard its eventual responses.
+    // Deadlines and cancellation must stop the queue, not merely discard eventual responses.
     if (worker.child.exitCode === null && worker.child.signalCode === null) worker.child.kill("SIGKILL");
     worker.child.stdin.destroy();
     for (const pending of worker.pending.values()) {
       clearTimeout(pending.timer);
+      pending.removeAbortListener();
       pending.reject(error);
     }
     worker.pending.clear();

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Saving context defaults now shares Pi's cross-process settings lock, preserving concurrent host updates and refusing to overwrite invalid settings documents.
+- Cancelling Fabric tools now stops their worker and queued calls without replaying writes. In-flight outcomes may be indeterminate and worker session state is reset; subsequent calls start a fresh worker.
 - Turning memory off now discards pending capture and late startup/recall results, even if memory is turned back on before the response finishes.
 - Toggle the requested context-default settings scope instead of an overriding effective value, and distinguish saved defaults from project overrides.
 - Load only the configured Icarus checkout and prevent current-project Python packages or standard-library shadows from running inside the worker.

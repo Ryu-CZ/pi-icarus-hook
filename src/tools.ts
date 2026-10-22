@@ -141,13 +141,13 @@ export function registerTools(pi: PiApi, bridge: IcarusBridge, includeAdmin: boo
   for (const definition of includeAdmin ? [...fabricTools, ...adminTools] : fabricTools) {
     pi.registerTool({
       ...definition,
-      async execute(_toolCallId: string, params: Record<string, unknown>) {
+      async execute(_toolCallId: string, params: Record<string, unknown>, signal?: AbortSignal) {
         if (definition.name === "fabric_write") {
           const prepared = prepareFabricWrite(params);
           if ("error" in prepared) return jsonResult({ error: prepared.error });
           params = prepared.params;
         }
-        return jsonResult(await bridge.tool(definition.name, params));
+        return jsonResult(await bridge.tool(definition.name, params, signal));
       },
     });
   }
