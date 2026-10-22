@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Turning memory off now discards pending capture and late startup/recall results, even if memory is turned back on before the response finishes.
 - Toggle the requested context-default settings scope instead of an overriding effective value, and distinguish saved defaults from project overrides.
 - Load only the configured Icarus checkout and prevent current-project Python packages or standard-library shadows from running inside the worker.
 - Handle worker pipe errors, failed launches, and replacement races without crashing Pi or corrupting later calls. Timeouts now terminate the worker and reject its pending queue without replay; recovery and session-state loss are documented.

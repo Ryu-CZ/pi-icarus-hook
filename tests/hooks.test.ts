@@ -197,6 +197,66 @@ test("startup without a usable session ID retains normal initialization behavior
   }
 });
 
+for (const reenable of [false, true]) {
+  for (const hook of ["on_session_start", "pre_llm_call"] as const) {
+    test(`${hook} discards awaited context after disabling${reenable ? " and reenabling" : ""}`, async () => {
+      let release!: (value: unknown) => void;
+      const fake = setup({ [hook]: new Promise(resolve => { release = resolve; }) });
+      const ctx = fake.ctx("same-session");
+      const result = hook === "on_session_start"
+        ? fake.handlers.session_start?.({ reason: "startup" }, ctx)
+        : fake.handlers.before_agent_start?.({ messageType: "user", prompt: "request" }, ctx);
+      fake.control.setEnabled(false);
+      if (reenable) fake.control.setEnabled(true);
+      release({ context: "stale private memory" });
+      assert.equal(await result, undefined);
+      assert.deepEqual(fake.messages, []);
+      await fake.handlers.agent_end?.({ messages: [{ role: "assistant", content: "answer", stopReason: "stop" }] }, ctx);
+      await fake.handlers.agent_settled?.({ aborted: false }, ctx);
+      assert.equal(fake.calls.filter(call => call.name === "post_llm_call").length, 0);
+    });
+  }
+}
+
+for (const boundary of ["replacement", "shutdown"] as const) {
+  test(`${boundary} invalidates awaited startup and recall context`, async () => {
+    for (const hook of ["on_session_start", "pre_llm_call"] as const) {
+      let release!: (value: unknown) => void;
+      const results = { [hook]: new Promise(resolve => { release = resolve; }) };
+      const fake = setup(results);
+      const ctx = fake.ctx("old-session");
+      const result = hook === "on_session_start"
+        ? fake.handlers.session_start?.({ reason: "startup" }, ctx)
+        : fake.handlers.before_agent_start?.({ messageType: "user", prompt: "old" }, ctx);
+      if (boundary === "shutdown") await fake.handlers.session_shutdown?.({}, ctx);
+      else {
+        results[hook] = Promise.resolve({ context: "" });
+        await fake.handlers.session_start?.({}, fake.ctx("new-session"));
+      }
+      release({ context: "old session memory" });
+      assert.equal(await result, undefined);
+      assert.deepEqual(fake.messages, []);
+    }
+  });
+}
+
+test("off/on cannot resurrect capture, and the next prompt preserves first-turn consumption", async () => {
+  const fake = setup();
+  const ctx = fake.ctx("session");
+  await fake.handlers.before_agent_start?.({ messageType: "user", prompt: "straddling" }, ctx);
+  fake.control.toggle();
+  await fake.handlers.agent_end?.({ messages: [{ role: "user", content: "disabled" }] }, ctx);
+  fake.control.toggle();
+  await fake.handlers.agent_end?.({ messages: [{ role: "assistant", content: "late answer", stopReason: "stop" }] }, ctx);
+  await fake.handlers.agent_settled?.({ aborted: false }, ctx);
+  assert.equal(fake.calls.filter(call => call.name === "post_llm_call").length, 0);
+  await fake.handlers.before_agent_start?.({ messageType: "user", prompt: "fresh" }, ctx);
+  await fake.handlers.agent_end?.({ messages: [{ role: "assistant", content: "fresh answer", stopReason: "stop" }] }, ctx);
+  await fake.handlers.agent_settled?.({ aborted: false }, ctx);
+  assert.deepEqual(fake.calls.filter(call => call.name === "pre_llm_call").map(call => call.payload.is_first_turn), [true, false]);
+  assert.equal(fake.calls.filter(call => call.name === "post_llm_call").length, 1);
+});
+
 test("bridge failures fail open and shutdown still closes the bridge", async () => {
   const fake = setup({
     on_session_start: new Error("bridge unavailable"),

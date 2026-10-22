@@ -41,6 +41,7 @@ function sessionId(ctx: unknown): string {
 
 export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfig): IcarusHookControl {
   let enabled = true;
+  let generation = 0;
   let contextVisible = config.hiddenDisplay;
   let firstPrompt = true;
   let startedSessionId: string | undefined;
@@ -49,12 +50,15 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
     startSession,
     isEnabled: () => enabled,
     setEnabled(value, ctx) {
+      if (!value) {
+        generation++;
+        pending = undefined;
+      }
       enabled = value;
       setFooterStatus(ctx, enabled ? config.footerStatus : undefined);
     },
     toggle(ctx) {
-      enabled = !enabled;
-      setFooterStatus(ctx, enabled ? config.footerStatus : undefined);
+      control.setEnabled(!enabled, ctx);
       return enabled;
     },
     isContextVisible: () => contextVisible,
@@ -71,6 +75,7 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
     const id = sessionId(ctx);
     // RPC can bind the same fresh runtime twice. Unknown IDs cannot safely be deduplicated.
     if (id && startedSessionId === id) return;
+    const currentGeneration = ++generation;
     startedSessionId = id || undefined;
     firstPrompt = true;
     pending = undefined;
@@ -84,6 +89,7 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
         session_id: sessionId(ctx),
         platform: config.platform,
       }) as HookResult | null;
+      if (!enabled || generation !== currentGeneration) return;
       const startupContext = result?.context || "";
       if (startupContext.trim()) {
         pi.sendMessage?.({
@@ -111,6 +117,7 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
       const prompt = asText(record.prompt);
       if (!prompt.trim()) return;
       pending = { prompt, users: [] };
+      const currentGeneration = generation;
       const isFirstPrompt = firstPrompt;
       firstPrompt = false;
       const result = await bridge.hook("pre_llm_call", {
@@ -118,6 +125,7 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
         user_message: prompt,
         is_first_turn: isFirstPrompt,
       }) as HookResult | null;
+      if (!enabled || generation !== currentGeneration) return;
       return contextMessage("icarus-memory-context", result?.context || "", contextVisible);
     } catch {
       return;
@@ -125,7 +133,7 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
   });
 
   pi.on("agent_end", (event: unknown) => {
-    if (!pending) return;
+    if (!enabled || !pending) return;
     const messages = eventRecord(event).messages;
     if (!Array.isArray(messages)) return;
     for (const value of messages) {
@@ -159,6 +167,7 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
   });
 
   pi.on("session_shutdown", async (_event: unknown, ctx: unknown) => {
+    generation++;
     pending = undefined;
     try {
       if (!enabled) return;
