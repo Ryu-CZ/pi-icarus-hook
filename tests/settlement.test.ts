@@ -1,3 +1,4 @@
+import type { TestEventHandler } from "./pi-test-helpers.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { bindHooks } from "../src/hooks.js";
@@ -5,13 +6,13 @@ import { loadConfig } from "../src/config.js";
 import type { PiApi } from "../src/types.js";
 
 function setup() {
-  const handlers: Record<string, (...args: unknown[]) => unknown> = {};
+  const handlers: Record<string, TestEventHandler> = {};
   const calls: Array<{ name: string; payload: Record<string, unknown> }> = [];
   const bridge = {
     async hook(name: string, payload: Record<string, unknown>) { calls.push({ name, payload }); },
     close() {},
   };
-  const pi: PiApi = { on(name, handler) { handlers[name] = handler; }, registerTool() {} };
+  const pi: PiApi = { on(name, handler) { handlers[name] = handler; return () => {}; }, registerTool() {} };
   bindHooks(pi, bridge as never, loadConfig());
   const emit = (name: string, event: Record<string, unknown> = {}) => handlers[name]?.(event, {
     sessionManager: { getSessionId: () => "session" },

@@ -1,3 +1,5 @@
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+
 export interface PiBridgeConfig {
   icarusDir: string;
   python: string;
@@ -23,12 +25,8 @@ export interface ToolDefinition {
   parameters: Record<string, unknown>;
 }
 
-export interface PiApi {
-  on: (event: string, handler: (...args: unknown[]) => unknown) => void;
-  registerTool: (tool: ToolDefinition & { execute: (toolCallId: string, params: Record<string, unknown>) => Promise<unknown> }) => void;
-  sendMessage?: (message: PiMessage, options?: { triggerTurn?: boolean }) => void;
-  registerCommand?: (name: string, command: { description: string; handler: (args: unknown, ctx: unknown) => unknown }) => void;
-}
+export type PiApi = Pick<ExtensionAPI, "on" | "registerTool"> &
+  Partial<Pick<ExtensionAPI, "sendMessage" | "registerCommand">>;
 
 export interface PiContext {
   cwd?: string;

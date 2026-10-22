@@ -254,13 +254,13 @@ export function registerConfigIntrospection(pi: PiApi, config: PiBridgeConfig, r
       if (!isValidCommand(parts)) {
         // Reject malformed scopes here so they cannot fall through to automatic scope selection and write settings.
         notify(ctx, COMMAND_USAGE, "warning");
-        return COMMAND_USAGE;
+        return;
       }
       if (command === "context") {
         if (!hookControl) {
           const message = hookStatusMessage(hookControl);
           notify(ctx, message, "warning");
-          return message;
+          return;
         }
 
         const message = parts[1] === "default"
@@ -268,7 +268,7 @@ export function registerConfigIntrospection(pi: PiApi, config: PiBridgeConfig, r
           : handleContextVisibility(parts[1] || "", hookControl);
         if (message) {
           notify(ctx, message, "info");
-          return message;
+          return;
         }
       }
 
@@ -276,7 +276,7 @@ export function registerConfigIntrospection(pi: PiApi, config: PiBridgeConfig, r
         if (!hookControl) {
           const message = hookStatusMessage(hookControl);
           notify(ctx, message, command === "status" || command === "off" || command === "disable" ? "info" : "warning");
-          return message;
+          return;
         }
 
         if (command === "" || command === "toggle") hookControl.toggle(ctx);
@@ -285,13 +285,12 @@ export function registerConfigIntrospection(pi: PiApi, config: PiBridgeConfig, r
 
         const message = hookStatusMessage(hookControl);
         notify(ctx, message, "info");
-        return message;
+        return;
       }
 
       const payload = command === "schema" ? CONFIG_SCHEMA : configInspection(config);
       const text = JSON.stringify(payload, null, 2);
       notify(ctx, text, "info");
-      return text;
     },
   });
 

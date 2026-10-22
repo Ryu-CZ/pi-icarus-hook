@@ -1,3 +1,4 @@
+import type { TestEventHandler } from "./pi-test-helpers.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { bindHooks } from "../src/hooks.js";
@@ -22,17 +23,15 @@ const config: PiBridgeConfig = {
 };
 
 function setup(results: Partial<Record<HookName, unknown>> = {}) {
-  const handlers: Record<string, (...args: unknown[]) => unknown> = {};
+  const handlers: Record<string, TestEventHandler> = {};
   const calls: HookCall[] = [];
   const messages: Array<{
-    message: { customType: string; content: string; display: boolean };
+    message: Parameters<NonNullable<PiApi["sendMessage"]>>[0];
     options?: { triggerTurn?: boolean };
   }> = [];
   let closeCount = 0;
-  const pi: PiApi & {
-    sendMessage: (message: { customType: string; content: string; display: boolean }, options?: { triggerTurn?: boolean }) => void;
-  } = {
-    on(event: string, handler: (...args: unknown[]) => unknown) { handlers[event] = handler; },
+  const pi: PiApi = {
+    on(event, handler) { handlers[event] = handler; return () => {}; },
     registerTool() {},
     sendMessage(message, options) { messages.push({ message, options }); },
   };

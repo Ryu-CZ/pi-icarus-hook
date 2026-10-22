@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import type { ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import test from "node:test";
 import { registerTools } from "../src/tools.js";
 import type { IcarusBridge } from "../src/bridge.js";
@@ -24,8 +25,19 @@ function setup(toolResult: unknown = { status: "written", path: "/fabric/entry.m
   } as unknown as IcarusBridge;
   const tools = new Map<string, RegisteredTool>();
   const pi: PiApi = {
-    on() {},
-    registerTool(tool) { tools.set(tool.name, tool); },
+    on() { return () => {}; },
+    registerTool(tool) {
+      // This fixture calls the registered tools with their known JSON arguments and unused contexts.
+      const execute = tool.execute as (id: string, params: Record<string, unknown>, signal: undefined, onUpdate: undefined, ctx: ExtensionToolContext) => Promise<unknown>;
+      tools.set(tool.name, {
+        name: tool.name,
+        label: tool.label,
+        description: tool.description,
+        parameters: tool.parameters as unknown as Record<string, unknown>,
+        promptSnippet: tool.promptSnippet ?? "",
+        execute: (id, params) => execute(id, params, undefined, undefined, {} as ExtensionToolContext),
+      });
+    },
   };
   registerTools(pi, bridge, false);
   return { tools, calls };

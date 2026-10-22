@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Allow Icarus to be type-checked and registered with current Pi extension types, including Pi 1.4.0, while preserving command notifications and memory behavior.
+
 ## [0.5.4] - 2026-10-16
 
 ### Fixed
