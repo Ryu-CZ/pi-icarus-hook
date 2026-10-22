@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
+import lockfile from "proper-lockfile";
 
 export type SettingsScope = "global" | "project";
 
@@ -51,13 +52,18 @@ export function settingsPath(scope: SettingsScope, cwd = process.cwd()): string 
   return join(agentDir, "settings.json");
 }
 
-async function readSettingsDocument(path: string): Promise<SettingsDocument> {
+async function readSettingsDocument(path: string, forWrite = false): Promise<SettingsDocument> {
   try {
     const raw = await readFile(path, "utf8");
     const parsed = JSON.parse(raw) as unknown;
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as SettingsDocument : {};
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed as SettingsDocument;
+    if (forWrite) throw new Error(`Cannot update ${path}: settings must be a JSON object`);
+    return {};
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return {};
+    if (forWrite && error instanceof SyntaxError) {
+      throw new Error(`Cannot update ${path}: repair invalid JSON before saving settings`, { cause: error });
+    }
     throw error;
   }
 }
@@ -106,14 +112,22 @@ export async function chooseBooleanPackageSettingScope(settingKey: string, cwd =
 
 export async function writeBooleanPackageSetting(scope: SettingsScope, cwd: string, settingKey: string, value: boolean): Promise<PackageSettingWriteResult> {
   const path = settingsPath(scope, cwd);
-  const document = await readSettingsDocument(path);
-  const existing = packageSection(document);
-  const packageKey = existing?.key ?? PACKAGE_KEYS[0];
-  const section = { ...(existing?.section ?? {}) };
-  section[settingKey] = value;
-  document[packageKey] = section;
-
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, `${JSON.stringify(document, null, 2)}\n`, "utf8");
-  return { scope, path, packageKey, value };
+  // Match Pi's FileSettingsStorage lock, including when settings.json does not exist yet.
+  const release = await lockfile.lock(path, {
+    realpath: false,
+    retries: { retries: 10, minTimeout: 20, maxTimeout: 100, factor: 1.5 },
+  });
+  try {
+    const document = await readSettingsDocument(path, true);
+    const existing = packageSection(document);
+    const packageKey = existing?.key ?? PACKAGE_KEYS[0];
+    const section = { ...(existing?.section ?? {}) };
+    section[settingKey] = value;
+    document[packageKey] = section;
+    await writeFile(path, `${JSON.stringify(document, null, 2)}\n`, "utf8");
+    return { scope, path, packageKey, value };
+  } finally {
+    await release();
+  }
 }
