@@ -5,14 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.0] - 2026-10-22
+
+Minor release: includes security fixes and small behavior changes.
 
 ### Fixed
 
 - `/icarus off` now reliably stops memory: nothing already requested gets added to the conversation or saved, even if memory is turned back on before the answer finishes.
-- Cancelling a Fabric action now also stops actions still waiting to start, so a write you cancelled no longer runs later. A write already running can still finish; restart the conversation to fully reinitialize memory.
-- Declined project settings no longer configure Icarus: they cannot choose the Python program, storage, or tools for untrusted sessions. Trusted sessions still use their project settings, and `/icarus` respects the decline. Memory initializes once per conversation.
-- Saving context defaults no longer wipes changes another Pi window saves at the same time, and refuses to overwrite a broken settings file instead of silently replacing it.
+- Cancelling a Fabric action now also stops queued actions, so a cancelled write no longer runs later (new behavior). A write already running can still finish; restart the conversation to fully reinitialize memory.
+- Declined project settings no longer configure Icarus (behavior change): they cannot choose the Python program, storage, or tools for untrusted sessions. Trusted sessions still use their project settings, and `/icarus` respects the decline. Memory initializes once per conversation.
+- Saving context defaults no longer wipes changes another Pi window saves at the same time. Saving a broken settings file now fails instead of silently overwriting it (new behavior); repair the file first.
 - Toggling a context default now flips the scope you asked for, and the reply states where it was saved and that project settings may override a global one.
 - A crashed worker no longer breaks Pi, and failed calls are rejected without retrying; restart the conversation to fully reinitialize memory.
 - Python code in the current project can no longer impersonate Icarus while the worker runs.
@@ -123,7 +125,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Smoke tests proving tool pass-through and persistent hook session state.
 - README explaining that the package only binds Pi to Icarus and does not reimplement Memory OS behavior.
 
-[Unreleased]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.5.4...HEAD
+[Unreleased]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.5.4...v0.6.0
 [0.5.4]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.5.1...v0.5.2
