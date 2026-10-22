@@ -30,6 +30,7 @@ export type PiApi = Pick<ExtensionAPI, "on" | "registerTool"> &
 
 export interface PiContext {
   cwd?: string;
+  isProjectTrusted?: () => boolean;
   sessionManager?: { getSessionId: () => string };
   ui?: {
     setStatus?: (key: string, value: string | undefined) => void;
@@ -38,6 +39,7 @@ export interface PiContext {
 }
 
 export interface IcarusHookControl {
+  startSession: (event: unknown, ctx: unknown) => Promise<void>;
   isEnabled: () => boolean;
   setEnabled: (enabled: boolean, ctx?: unknown) => void;
   toggle: (ctx?: unknown) => boolean;

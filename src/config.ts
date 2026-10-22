@@ -42,10 +42,10 @@ function readSettingsFile(settingsPath: string): SettingsFile | undefined {
   }
 }
 
-function loadSettingsFiles(cwd: string): SettingsFile[] {
+function loadSettingsFiles(cwd: string, projectTrusted: boolean): SettingsFile[] {
   const agentDir = process.env.PI_CODING_AGENT_DIR ? resolvePath(process.env.PI_CODING_AGENT_DIR) : join(homedir(), ".pi", "agent");
   return [
-    readSettingsFile(join(resolve(cwd), ".pi", "settings.json")),
+    ...(projectTrusted ? [readSettingsFile(join(resolve(cwd), ".pi", "settings.json"))] : []),
     readSettingsFile(join(agentDir, "settings.json")),
   ].filter((file): file is SettingsFile => file !== undefined);
 }
@@ -127,8 +127,8 @@ function inferAgentFromHermesHome(value: string | undefined): string | undefined
   return base.startsWith(prefix) && base.length > prefix.length ? base.slice(prefix.length) : undefined;
 }
 
-export function loadConfig(cwd = process.cwd()): PiBridgeConfig {
-  const settings = loadSettingsFiles(cwd);
+export function loadConfig(cwd = process.cwd(), { projectTrusted = false } = {}): PiBridgeConfig {
+  const settings = loadSettingsFiles(cwd, projectTrusted);
   const hermesHome = loadHermesHome(settings);
   return {
     icarusDir: loadIcarusDir(hermesHome, settings),

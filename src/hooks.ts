@@ -43,8 +43,10 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
   let enabled = true;
   let contextVisible = config.hiddenDisplay;
   let firstPrompt = true;
+  let startedSessionId: string | undefined;
   let pending: { prompt: string; users: string[]; assistant?: Record<string, unknown> } | undefined;
   const control: IcarusHookControl = {
+    startSession,
     isEnabled: () => enabled,
     setEnabled(value, ctx) {
       enabled = value;
@@ -65,7 +67,11 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
     },
   };
 
-  pi.on("session_start", async (_event: unknown, ctx: unknown) => {
+  async function startSession(_event: unknown, ctx: unknown): Promise<void> {
+    const id = sessionId(ctx);
+    // RPC can bind the same fresh runtime twice. Unknown IDs cannot safely be deduplicated.
+    if (id && startedSessionId === id) return;
+    startedSessionId = id || undefined;
     firstPrompt = true;
     pending = undefined;
     if (!enabled) {
@@ -89,7 +95,8 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
     } catch {
       return;
     }
-  });
+  }
+  pi.on("session_start", startSession);
 
   pi.on("before_agent_start", async (event: unknown, ctx: unknown) => {
     pending = undefined;

@@ -154,6 +154,49 @@ test("each lifecycle hook uses the session manager ID and shutdown omits complet
   assert.equal(fake.closed(), 1);
 });
 
+test("duplicate startup for one session preserves first-prompt and pending-capture state", async () => {
+  const fake = setup({ on_session_start: { context: "startup" } });
+  const ctx = fake.ctx("same-session");
+  await fake.handlers.session_start?.({ reason: "new" }, ctx);
+  await fake.handlers.before_agent_start?.({ messageType: "user", prompt: "first" }, ctx);
+  await fake.handlers.agent_end?.({ messages: [{ role: "assistant", content: "answer", stopReason: "stop" }] }, ctx);
+  await fake.handlers.session_start?.({ reason: "new" }, ctx);
+  await fake.handlers.agent_settled?.({ aborted: false }, ctx);
+  await fake.handlers.before_agent_start?.({ messageType: "user", prompt: "second" }, ctx);
+
+  assert.equal(fake.calls.filter(call => call.name === "on_session_start").length, 1);
+  assert.equal(fake.messages.length, 1);
+  assert.equal(fake.calls.filter(call => call.name === "post_llm_call").length, 1);
+  assert.deepEqual(fake.calls.filter(call => call.name === "pre_llm_call").map(call => call.payload.is_first_turn), [true, false]);
+  const next = fake.ctx("next-session");
+  await fake.handlers.session_start?.({ reason: "new" }, next);
+  await fake.handlers.before_agent_start?.({ messageType: "user", prompt: "new session" }, next);
+  assert.equal(fake.calls.filter(call => call.name === "on_session_start").length, 2);
+  assert.equal(fake.calls.filter(call => call.name === "pre_llm_call").at(-1)?.payload.is_first_turn, true);
+});
+
+test("concurrent startup notifications attempt initialization only once", async () => {
+  let release!: (value: unknown) => void;
+  const startup = new Promise(resolve => { release = resolve; });
+  const fake = setup({ on_session_start: startup });
+  const ctx = fake.ctx("concurrent-session");
+  const first = fake.handlers.session_start?.({ reason: "new" }, ctx);
+  const second = fake.handlers.session_start?.({ reason: "new" }, ctx);
+  assert.equal(fake.calls.filter(call => call.name === "on_session_start").length, 1);
+  release({ context: "startup" });
+  await Promise.all([first, second]);
+  assert.equal(fake.messages.length, 1);
+});
+
+test("startup without a usable session ID retains normal initialization behavior", async () => {
+  for (const ctx of [{}, { sessionManager: { getSessionId: () => "" } }]) {
+    const fake = setup();
+    await fake.handlers.session_start?.({ reason: "startup" }, ctx);
+    await fake.handlers.session_start?.({ reason: "new" }, ctx);
+    assert.equal(fake.calls.filter(call => call.name === "on_session_start").length, 2);
+  }
+});
+
 test("bridge failures fail open and shutdown still closes the bridge", async () => {
   const fake = setup({
     on_session_start: new Error("bridge unavailable"),

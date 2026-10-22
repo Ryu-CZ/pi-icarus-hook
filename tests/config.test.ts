@@ -68,7 +68,7 @@ test("loads pi-icarus-hook settings from project .pi/settings.json", async (t) =
     },
   }), "utf8");
 
-  const config = loadConfig(root);
+  const config = loadConfig(root, { projectTrusted: true });
 
   assert.equal(config.icarusDir, join(root, ".pi", "icarus"));
   assert.equal(config.hermesHome, join(root, ".pi", "hermes"));
@@ -136,7 +136,7 @@ test("Pi extension behavior is Pi settings only, not environment variables", asy
     },
   }), "utf8");
 
-  const config = loadConfig(root);
+  const config = loadConfig(root, { projectTrusted: true });
 
   assert.equal(config.platform, "settings-platform");
   assert.equal(config.bindHooks, false);
@@ -165,7 +165,7 @@ test("external runtime environment variables override Pi settings", async (t) =>
   }), "utf8");
   process.env.ICARUS_DIR = join(root, "env-icarus");
 
-  const config = loadConfig(root);
+  const config = loadConfig(root, { projectTrusted: true });
 
   assert.equal(config.icarusDir, join(root, "env-icarus"));
   assert.equal(config.registerTools, false);

@@ -14,6 +14,7 @@ const IGNORED_PI_ENV_KEYS = [
   "PI_ICARUS_HOOK_TOOLS",
   "PI_ICARUS_HOOK_HOOKS",
   "PI_CODING_AGENT_DIR",
+  "ICARUS_PYTHON",
 ];
 
 function saveEnv(): Record<string, string | undefined> {
@@ -68,10 +69,12 @@ test("extension registers hook bindings and normal fabric tools", async (t) => {
     registerTool(tool) { tools.push(tool.name); },
   });
 
+  process.env.ICARUS_PYTHON = join(root, "missing-python");
+  await handlers.session_start?.({ type: "session_start", reason: "startup" }, { ...ctx, cwd: root, isProjectTrusted: () => true });
   await handlers.before_agent_start?.({}, ctx);
 
-  assert.deepEqual(events, ["session_start", "before_agent_start", "agent_end", "agent_settled", "session_shutdown"]);
-  assert.deepEqual(commands, ["icarus"]);
+  assert.deepEqual(events, ["session_start", "session_shutdown", "session_start", "before_agent_start", "agent_end", "agent_settled", "session_shutdown"]);
+  assert.deepEqual(commands, ["icarus", "icarus"]);
   assert.equal(statuses["icarus"], "🪽 Icarus");
   assert.match(await commandReply(commandHandlers["icarus"], "", ctx), /hooks are off/);
   assert.equal(statuses["icarus"], undefined);
@@ -93,6 +96,7 @@ test("extension closes bridge on shutdown when hook bindings are disabled", asyn
   const events: string[] = [];
   const commands: string[] = [];
   const tools: string[] = [];
+  const handlers: Record<string, TestEventHandler> = {};
   const root = await mkdtemp(join(tmpdir(), "pi-icarus-hook-extension-disabled-"));
   const oldCwd = process.cwd();
   const oldEnv = saveEnv();
@@ -116,13 +120,15 @@ test("extension closes bridge on shutdown when hook bindings are disabled", asyn
   process.env.PI_ICARUS_HOOK_HOOKS = "0";
 
   extension({
-    on(event, _handler) { events.push(event); return () => {}; },
+    on(event, handler) { events.push(event); handlers[event] = handler; return () => {}; },
     registerCommand(name, _command) { commands.push(name); },
     registerTool(tool) { tools.push(tool.name); },
   });
 
-  assert.deepEqual(events, ["session_shutdown"]);
-  assert.deepEqual(commands, ["icarus"]);
+  await handlers.session_start?.({ type: "session_start", reason: "startup" }, { cwd: root, isProjectTrusted: () => true });
+
+  assert.deepEqual(events, ["session_start", "session_shutdown", "session_shutdown"]);
+  assert.deepEqual(commands, ["icarus", "icarus"]);
   assert.deepEqual(tools, []);
 });
 
@@ -207,7 +213,7 @@ test("context default commands persist future startup defaults only", async (t) 
     hook: async () => ({ context: "remembered context" }),
     close() {},
   };
-  const ctx = { cwd: root, ui: { notify() {} } };
+  const ctx = { cwd: root, isProjectTrusted: () => true, ui: { notify() {} } };
 
   const hookControl = bindHooks(pi, bridge as never, config);
   registerConfigIntrospection(pi, config, false, hookControl);
@@ -274,6 +280,7 @@ test("invalid icarus command forms warn without toggling or writing settings", a
     registerTool() {},
   };
   const hookControl = {
+    async startSession() {},
     isEnabled: () => true,
     setEnabled() { effects.hooks += 1; },
     toggle() { effects.hooks += 1; return false; },
