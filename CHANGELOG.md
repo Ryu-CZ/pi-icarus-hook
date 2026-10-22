@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Toggling a context default now flips the scope you asked for, and the reply states where it was saved and that project settings may override a global one.
 - A crashed worker no longer breaks Pi, and failed calls are rejected without retrying; restart the conversation to fully reinitialize memory.
 - Python code in the current project can no longer impersonate Icarus while the worker runs.
-- Works with the extension types of current Pi releases.
+- Works with the extension types of current Pi releases (verified against Pi 1.4.0).
 
 ## [0.5.4] - 2026-10-16
 
