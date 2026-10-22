@@ -9,14 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Saving context defaults now shares Pi's cross-process settings lock, preserving concurrent host updates and refusing to overwrite invalid settings documents.
-- Cancelling Fabric tools now stops their worker and queued calls without replaying writes. In-flight outcomes may be indeterminate and worker session state is reset; subsequent calls start a fresh worker.
-- Turning memory off now discards pending capture and late startup/recall results, even if memory is turned back on before the response finishes.
-- Toggle the requested context-default settings scope instead of an overriding effective value, and distinguish saved defaults from project overrides.
-- Load only the configured Icarus checkout and prevent current-project Python packages or standard-library shadows from running inside the worker.
-- Handle worker pipe errors, failed launches, and replacement races without crashing Pi or corrupting later calls. Timeouts now terminate the worker and reject its pending queue without replay; recovery and session-state loss are documented.
-- Honor Pi project trust before applying project runtime settings or enabling project-configured tools; config commands no longer access declined project settings, and session replacement initializes memory only once.
-- Allow Icarus to be type-checked and registered with current Pi extension types, including Pi 1.4.0, while preserving command notifications and memory behavior.
+- `/icarus off` now reliably stops memory: nothing already requested gets added to the conversation or saved, even if memory is turned back on before the answer finishes.
+- Cancelling a Fabric action now also stops actions still waiting to start, so a write you cancelled no longer runs later. A write already running can still finish; restart the conversation to fully reinitialize memory.
+- Declined project settings no longer configure Icarus: they cannot choose the Python program, storage, or tools for untrusted sessions. Trusted sessions still use their project settings, and `/icarus` respects the decline. Memory initializes once per conversation.
+- Saving context defaults no longer wipes changes another Pi window saves at the same time, and refuses to overwrite a broken settings file instead of silently replacing it.
+- Toggling a context default now flips the scope you asked for, and the reply states where it was saved and that project settings may override a global one.
+- A crashed worker no longer breaks Pi, and failed calls are rejected without retrying; restart the conversation to fully reinitialize memory.
+- Python code in the current project can no longer impersonate Icarus while the worker runs.
+- Works with the extension types of current Pi releases.
 
 ## [0.5.4] - 2026-10-16
 
