@@ -311,6 +311,14 @@ Icarus returns {"context": "..."}
 
 The persistent Python worker is intentional. Icarus keeps per-session dedupe sets and `state.exchanges` in Python module globals, so hook calls must share one long-lived Python process.
 
+### Worker failures and recovery
+
+If a call exceeds `timeoutMs`, the bridge kills that worker and rejects all pending calls. An operation may already have changed external state: its outcome can be indeterminate, so check before retrying a write. Calls are never automatically replayed.
+
+Worker failure discards session-only Python state. The next explicit bridge call starts a fresh worker, but does not replay session initialization or recover earlier exchanges. Restart the Pi session to fully initialize memory again. Ambient hook errors fail open so Pi can continue; explicit tools report failures.
+
+The worker loads the configured Icarus checkout explicitly, not a same-named package in the current project. Empty, relative, and current-project `PYTHONPATH` entries are excluded; other absolute dependency paths remain available.
+
 If Memory OS changes behind Icarus, `pi-icarus-hook` should not need to change unless Icarus hook or tool signatures change.
 
 ## Verify
