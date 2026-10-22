@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Toggle the requested context-default settings scope instead of an overriding effective value, and distinguish saved defaults from project overrides.
 - Load only the configured Icarus checkout and prevent current-project Python packages or standard-library shadows from running inside the worker.
 - Handle worker pipe errors, failed launches, and replacement races without crashing Pi or corrupting later calls. Timeouts now terminate the worker and reject its pending queue without replay; recovery and session-state loss are documented.
 - Honor Pi project trust before applying project runtime settings or enabling project-configured tools; config commands no longer access declined project settings, and session replacement initializes memory only once.

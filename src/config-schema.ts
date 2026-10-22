@@ -225,14 +225,14 @@ async function contextDefaultMessage(parts: string[], config: PiBridgeConfig, ho
     return `Icarus injected context is ${visibilityLabel(hookControl.isContextVisible())} in this Pi session. Startup default is ${visibilityLabel(setting.value)} from ${scopeLabel(setting.source)}${path}.`;
   }
 
+  const scope = projectTrusted ? await chooseBooleanPackageSettingScope("contextDisplay", cwd, requestedScope) : "global";
   const visible = action === "toggle"
-    ? !(await inspectEffective()).value
+    ? !(await inspectBooleanPackageSettingScope(scope, "contextDisplay", CONFIG_SCHEMA.settings.contextDisplay.default, cwd)).value
     : parseVisibility(action);
   if (visible === undefined) return undefined;
-
-  const scope = projectTrusted ? await chooseBooleanPackageSettingScope("contextDisplay", cwd, requestedScope) : "global";
   const result = await writeBooleanPackageSetting(scope, cwd, "contextDisplay", visible);
-  return `Icarus injected context will be ${visibilityLabel(visible)} by default for future Pi sessions (${result.scope} settings: ${result.path}). Current session is still ${visibilityLabel(hookControl.isContextVisible())}; use /icarus context ${visible ? "show" : "hide"} to change it now.`;
+  const overrideNote = scope === "global" ? " Project settings may override this global default." : "";
+  return `Icarus injected context default saved as ${visibilityLabel(visible)} in ${result.scope} settings (${result.path}) for future Pi sessions.${overrideNote} Current session is still ${visibilityLabel(hookControl.isContextVisible())}; use /icarus context ${visible ? "show" : "hide"} to change it now.`;
 }
 
 function handleContextVisibility(command: string, hookControl: IcarusHookControl): string | undefined {

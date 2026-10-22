@@ -222,7 +222,7 @@ test("context default commands persist future startup defaults only", async (t) 
   assert.match(await commandReply(commands.icarus, "context default global", ctx), /Startup default is hidden from global settings/);
   assert.match(await commandReply(commands.icarus, "context default project", ctx), /Startup default is visible from built-in default/);
   const toggleMessage = await commandReply(commands.icarus, "context default toggle", ctx);
-  assert.match(toggleMessage, /visible by default for future Pi sessions/);
+  assert.match(toggleMessage, /default saved as visible in global settings/);
   assert.match(toggleMessage, /Current session is still visible/);
   const currentSession = await handlers.before_agent_start?.({ messageType: "user", prompt: "hello", session_id: "s" }, {});
   assert.equal((currentSession as { message: { display: boolean } }).message.display, true);
