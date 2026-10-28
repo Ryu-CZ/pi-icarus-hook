@@ -145,5 +145,7 @@ export function loadConfig(cwd = process.cwd(), { projectTrusted = false } = {})
     hiddenDisplay: boolValue(packageValue(settings, ["contextDisplay", "hiddenDisplay"]), true),
     footerStatus: packageString(settings, ["footerStatus", "statusLabel"])?.value || "🪽 Icarus",
     callTimeoutMs: intValue(packageValue(settings, ["timeoutMs", "callTimeoutMs"]), 30000),
+    classifier: packageString(settings, ["classifier"])?.value.trim() || "default",
+    classifierTimeoutMs: intValue(packageValue(settings, ["classifierTimeoutMs"]), 5000),
   };
 }

@@ -37,6 +37,8 @@ test("config inspection returns effective config and settings snippet", () => {
       tools: true,
       adminTools: false,
       timeoutMs: 30000,
+      classifier: "default",
+      classifierTimeoutMs: 5000,
       contextDisplay: false,
       footerStatus: "🪽 Icarus",
     },

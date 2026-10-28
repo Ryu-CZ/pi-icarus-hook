@@ -268,7 +268,14 @@ test("bridge failures fail open and shutdown still closes the bridge", async () 
 
   assert.equal(await fake.handlers.session_start?.({ type: "session_start", reason: "startup" }, ctx), undefined);
   assert.equal(await fake.handlers.before_agent_start?.({ type: "before_agent_start", messageType: "user", prompt: "hello" }, ctx), undefined);
-  assert.equal(await fake.handlers.agent_end?.({ type: "agent_end", messages: [] }, ctx), undefined);
+  await fake.handlers.agent_end?.({
+    type: "agent_end",
+    messages: [{ role: "assistant", content: "completed response", stopReason: "stop" }],
+  }, ctx);
+  assert.equal(await fake.handlers.agent_settled?.({ type: "agent_settled", aborted: false }, ctx), undefined);
   assert.equal(await fake.handlers.session_shutdown?.({ type: "session_shutdown" }, ctx), undefined);
+  assert.deepEqual(fake.calls.map(call => call.name), [
+    "on_session_start", "pre_llm_call", "post_llm_call", "on_session_end",
+  ]);
   assert.equal(fake.closed(), 1);
 });

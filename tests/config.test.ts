@@ -65,11 +65,15 @@ test("loads pi-icarus-hook settings from project .pi/settings.json", async (t) =
       contextDisplay: true,
       footerStatus: "🪽 Project Icarus",
       timeoutMs: 1234,
+      classifier: "llama.cpp/Kev-4B-Artemis",
+      classifierTimeoutMs: 1800,
     },
   }), "utf8");
 
   const config = loadConfig(root, { projectTrusted: true });
 
+  assert.equal(config.classifier, "llama.cpp/Kev-4B-Artemis");
+  assert.equal(config.classifierTimeoutMs, 1800);
   assert.equal(config.icarusDir, join(root, ".pi", "icarus"));
   assert.equal(config.hermesHome, join(root, ".pi", "hermes"));
   assert.equal(config.fabricDir, join(root, ".pi", "fabric"));
@@ -103,6 +107,8 @@ test("loads footer status from global Pi settings", async (t) => {
 
   const config = loadConfig(root);
 
+  assert.equal(config.classifier, "default");
+  assert.equal(config.classifierTimeoutMs, 5000);
   assert.equal(config.footerStatus, "🪽 Global Icarus");
   assert.equal(config.hiddenDisplay, true);
 });

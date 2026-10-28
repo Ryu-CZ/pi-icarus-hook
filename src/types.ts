@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 export interface PiBridgeConfig {
   icarusDir: string;
@@ -15,6 +15,8 @@ export interface PiBridgeConfig {
   hiddenDisplay: boolean;
   footerStatus: string;
   callTimeoutMs: number;
+  classifier?: string;
+  classifierTimeoutMs?: number;
 }
 
 export interface ToolDefinition {
@@ -26,9 +28,11 @@ export interface ToolDefinition {
 }
 
 export type PiApi = Pick<ExtensionAPI, "on" | "registerTool"> &
-  Partial<Pick<ExtensionAPI, "sendMessage" | "registerCommand">>;
+  Partial<Pick<ExtensionAPI, "sendMessage" | "registerCommand" | "appendEntry">>;
 
 export interface PiContext {
+  modelRegistry?: Pick<ExtensionContext["modelRegistry"], "getAvailableOfType" | "classify">;
+  signal?: AbortSignal;
   cwd?: string;
   isProjectTrusted?: () => boolean;
   sessionManager?: { getSessionId: () => string };

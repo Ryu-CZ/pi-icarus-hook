@@ -136,24 +136,16 @@ test("Icarus error envelopes are marked as tool errors", async () => {
   assert.match(result.content[0].text, /No query provided/);
 });
 
-test("successful Icarus results retain their existing result shape", async () => {
-  const { tools } = setup({ query: "needle", count: 0, results: [] });
+test("other fabric tools pass through arguments and preserve successful result shape", async () => {
+  const { tools, calls } = setup({ query: "needle", count: 0, results: [] });
   const result = await tools.get("fabric_search")!.execute("1", { query: "needle" }) as {
     content: Array<{ type: string; text: string }>;
     details: { query?: string; count?: number; results?: unknown[] };
     isError?: boolean;
   };
 
+  assert.deepEqual(calls, [{ name: "fabric_search", params: { query: "needle" } }]);
   assert.equal(result.isError, undefined);
   assert.deepEqual(result.details, { query: "needle", count: 0, results: [] });
   assert.match(result.content[0].text, /"results": \[\]/);
-});
-
-test("other fabric tools stay pass-through", async () => {
-  const { tools, calls } = setup();
-  await tools.get("fabric_search")!.execute("1", { query: "needle" });
-
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].name, "fabric_search");
-  assert.deepEqual(calls[0].params, { query: "needle" });
 });

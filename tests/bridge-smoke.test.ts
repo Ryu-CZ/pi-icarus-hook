@@ -81,7 +81,7 @@ test("bridged Icarus tools are pass-through", async (t) => {
 });
 
 test("fabric_write persists verified, evidence, and source_tool frontmatter", async (t) => {
-  const { bridge, fabricDir } = await withBridge(t);
+  const { bridge } = await withBridge(t);
 
   const write = await bridge.tool("fabric_write", {
     type: "resolution",

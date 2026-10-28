@@ -1,4 +1,5 @@
 import type { IcarusBridge } from "./bridge.js";
+import { filterContext, type FilterResult } from "./context-filter.js";
 import type { HookResult, IcarusHookControl, PiApi, PiBridgeConfig, PiContext, PiMessage } from "./types.js";
 
 const FOOTER_STATUS_KEY = "icarus";
@@ -39,9 +40,30 @@ function sessionId(ctx: unknown): string {
   return piContext(ctx).sessionManager?.getSessionId() ?? "";
 }
 
+function auditedContext(pi: PiApi, ctx: PiContext, filtered: FilterResult, original: string): string {
+  try {
+    if (!pi.appendEntry) throw new Error("Session audit unavailable");
+    pi.appendEntry("icarus-context-filter", {
+      ...filtered.audit,
+      sessionId: sessionId(ctx),
+      injectedIds: filtered.audit.retainedIds,
+    });
+    return filtered.context;
+  } catch {
+    // Never discard context without a persisted decision trail.
+    try {
+      ctx.ui?.notify?.("Icarus classifier audit unavailable; original context retained.", "warning");
+    } catch {
+      // UI is optional.
+    }
+    return original;
+  }
+}
+
 export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfig): IcarusHookControl {
   let enabled = true;
   let generation = 0;
+  let filtering: AbortController | undefined;
   let contextVisible = config.hiddenDisplay;
   let firstPrompt = true;
   let startedSessionId: string | undefined;
@@ -52,6 +74,7 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
     setEnabled(value, ctx) {
       if (!value) {
         generation++;
+        filtering?.abort();
         pending = undefined;
       }
       enabled = value;
@@ -75,6 +98,7 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
     const id = sessionId(ctx);
     // RPC can bind the same fresh runtime twice. Unknown IDs cannot safely be deduplicated.
     if (id && startedSessionId === id) return;
+    filtering?.abort();
     const currentGeneration = ++generation;
     startedSessionId = id || undefined;
     firstPrompt = true;
@@ -126,7 +150,19 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
         is_first_turn: isFirstPrompt,
       }) as HookResult | null;
       if (!enabled || generation !== currentGeneration) return;
-      return contextMessage("icarus-memory-context", result?.context || "", contextVisible);
+      const original = result?.context || "";
+      if (!original.trim() || config.classifier === "none") {
+        return contextMessage("icarus-memory-context", original, contextVisible);
+      }
+      const controller = new AbortController();
+      filtering = controller;
+      const context = piContext(ctx);
+      const signal = context.signal ? AbortSignal.any([controller.signal, context.signal]) : controller.signal;
+      const filtered = await filterContext(original, prompt, { modelRegistry: context.modelRegistry, signal }, config);
+      if (filtering === controller) filtering = undefined;
+      if (!enabled || generation !== currentGeneration || signal.aborted) return;
+      const content = auditedContext(pi, context, filtered, original);
+      return contextMessage("icarus-memory-context", content, contextVisible);
     } catch {
       return;
     }
@@ -168,6 +204,7 @@ export function bindHooks(pi: PiApi, bridge: IcarusBridge, config: PiBridgeConfi
 
   pi.on("session_shutdown", async (_event: unknown, ctx: unknown) => {
     generation++;
+    filtering?.abort();
     pending = undefined;
     try {
       if (!enabled) return;

@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Memory added before each prompt now automatically leaves out text a classifier confidently judges unrelated to your request. Retained text is unchanged, and startup context, facts sections, and unrecognized bracketed sections are preserved. Stored memories and explicit Fabric tool results are not changed.
+- Filtering defaults to `classifier: "default"`, which prefers a local classifier available in Pi. **If none is available, it can send your prompt and candidate memory text to a configured remote provider and incur charges.** Select an exact local `provider/model-id` to prevent remote fallback, or set `classifier: "none"` to keep the previous behavior. Reload or restart Pi after changing settings.
+- Missing classifiers, errors, uncertain decisions, and timeouts keep the original text. Filtering has a five-second deadline by default (`classifierTimeoutMs`); text beyond its input limits is kept rather than truncated. Relevance judgments can still be wrong, and discarded text may not be offered again later by Icarus.
+- Session audit entries record filtering decisions and reported usage without storing memory text or adding the audit to the model's context. If the audit cannot be saved, the original context is retained. Classifier usage is separate from Pi's main-model totals.
+
 ## [0.6.0] - 2026-10-22
 
 Minor release: includes security fixes and small behavior changes.

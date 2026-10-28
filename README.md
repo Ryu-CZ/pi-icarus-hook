@@ -151,6 +151,8 @@ Use `piIcarusHook` or `pi-icarus-hook` in Pi settings:
     "tools": true,
     "adminTools": false,
     "timeoutMs": 30000,
+    "classifier": "default",
+    "classifierTimeoutMs": 5000,
     "contextDisplay": true,
     "footerStatus": "🪽 Icarus"
   }
@@ -167,7 +169,7 @@ To customize the footer label globally, put this in `${PI_CODING_AGENT_DIR:-~/.p
 }
 ```
 
-The Pi-specific keys `platform`, `hooks`, `tools`, `adminTools`, `timeoutMs`, `contextDisplay`, and `footerStatus` are intentionally Pi-settings-only. They are not read from environment variables because they control Pi adapter/UI/tool behavior, not the external Icarus/Hermes runtime.
+The Pi-specific keys `platform`, `hooks`, `tools`, `adminTools`, `timeoutMs`, `classifier`, `classifierTimeoutMs`, `contextDisplay`, and `footerStatus` are intentionally Pi-settings-only. They are not read from environment variables because they control Pi adapter/UI/tool behavior, not the external Icarus/Hermes runtime.
 
 Pi settings:
 
@@ -178,6 +180,8 @@ Pi settings:
 | `tools` / `registerTools` | `true` | Register normal Fabric tools |
 | `adminTools` / `registerAdminTools` | `false` | Register admin/training tools |
 | `timeoutMs` / `callTimeoutMs` | `30000` | Timeout for each Icarus worker call |
+| `classifier` | `default` | Automatically filter context using a discovered classifier; `none` disables; `provider/model-id` selects exactly |
+| `classifierTimeoutMs` | `5000` | Total classifier discovery/request deadline; timeout keeps original context |
 | `contextDisplay` (`hiddenDisplay` legacy alias) | `true` | Show injected context instead of hiding it |
 | `footerStatus` / `statusLabel` | `🪽 Icarus` | Footer text shown while ambient hooks are active |
 
@@ -227,6 +231,36 @@ These run automatically when Pi emits lifecycle events:
 | `session_shutdown` | `icarus.hooks.on_session_end()` | Scores and persists the session, then closes the worker |
 
 The hook path is the recommended default. The model does not need to remember to call a tool before every answer; memory is injected as infrastructure. Use `/icarus off` to stop loading/saving memory for the current session, or `/icarus context hide` to keep hooks active but hide injected context.
+
+### Automatic context relevance filtering
+
+With `classifier: "default"`, every nonempty per-prompt memory response is automatically
+split into text spans, classified against the user request, and injected with only
+confidently irrelevant spans removed. No model tool call, user confirmation, or
+Hermes/Icarus changes are needed. All retrieval sources still run through the original
+Icarus hook. Startup context is never filtered; facts and unknown bracketed sections
+are retained, and selected text is copied verbatim, never summarized or rewritten.
+
+Pi’s native classifier registry supplies models and credentials. Default selection
+prefers loopback-local endpoints, then lowest catalog input + output price, then
+native decision models over llama.cpp chat adapters, then registry order. Catalog
+prices are estimates (some providers report zero for unknown cost). For deterministic
+selection use, for example, `"classifier": "llama.cpp/Kev-4B-Artemis"`; that model is
+not required on other installations. Explicit selections never substitute another model.
+
+**Privacy/cost:** if no local classifier is available, `default` can send the current
+prompt and candidate context to a configured remote provider and incur charges. Pin
+a local classifier to prevent remote fallback, or set `"classifier": "none"` to keep
+the original injection behavior. Missing classifier support/model, errors, or timeout
+also preserve the original context. Changes take effect after Pi reload/restart.
+
+Filtering is probabilistic, not a truth/security check or reconstruction of individual
+memories. Icarus may already mark returned text as injected: discarded spans may not
+be offered again later. Input/latency bounds retain unclassified text rather than
+truncating it. Session-only audit entries (`icarus-context-filter`) record span IDs,
+decisions, model, latency, usage when reported, and fallbacks; they do **not** inject
+rejected text into model context. Classifier usage is recorded there separately, not
+added to Pi’s main-model/footer totals. See [filter details](docs/kev-memory-filter.md).
 
 ### Normal Fabric tools, enabled by default
 
@@ -305,7 +339,8 @@ Context-returning hooks are injected back into Pi as visible messages by default
 
 ```text
 Icarus returns {"context": "..."}
-  -> pi-icarus-hook wraps it as a Pi message
+  -> pi-icarus-hook optionally filters text spans with a Pi classifier
+  -> pi-icarus-hook wraps retained context as a Pi message
     -> Pi receives the memory context with display: true
 ```
 

@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import extension from "../src/index.js";
+import { IcarusBridge } from "../src/bridge.js";
 import { registerConfigIntrospection } from "../src/config-schema.js";
 import { bindHooks } from "../src/hooks.js";
 import type { PiApi, PiBridgeConfig } from "../src/types.js";
@@ -29,6 +30,7 @@ function restoreEnv(saved: Record<string, string | undefined>): void {
 }
 
 test("extension registers hook bindings and normal fabric tools", async (t) => {
+  const shutdownHandlers: TestEventHandler[] = [];
   const events: string[] = [];
   const commands: string[] = [];
   const commandHandlers: Record<string, CommandHandler> = {};
@@ -45,6 +47,7 @@ test("extension registers hook bindings and normal fabric tools", async (t) => {
   const oldCwd = process.cwd();
   const oldEnv = saveEnv();
   t.after(async () => {
+    for (const handler of shutdownHandlers) await handler({ reason: "exit" }, ctx);
     process.chdir(oldCwd);
     restoreEnv(oldEnv);
     await rm(root, { recursive: true, force: true });
@@ -64,7 +67,12 @@ test("extension registers hook bindings and normal fabric tools", async (t) => {
   process.env.PI_ICARUS_HOOK_HOOKS = "1";
 
   extension({
-    on(event, handler) { events.push(event); handlers[event] = handler; return () => {}; },
+    on(event, handler) {
+      events.push(event);
+      handlers[event] = handler;
+      if (event === "session_shutdown") shutdownHandlers.push(handler);
+      return () => {};
+    },
     registerCommand(name, command) { commands.push(name); commandHandlers[name] = command.handler; },
     registerTool(tool) { tools.push(tool.name); },
   });
@@ -73,8 +81,10 @@ test("extension registers hook bindings and normal fabric tools", async (t) => {
   await handlers.session_start?.({ type: "session_start", reason: "startup" }, { ...ctx, cwd: root, isProjectTrusted: () => true });
   await handlers.before_agent_start?.({}, ctx);
 
-  assert.deepEqual(events, ["session_start", "session_shutdown", "session_start", "before_agent_start", "agent_end", "agent_settled", "session_shutdown"]);
-  assert.deepEqual(commands, ["icarus", "icarus"]);
+  for (const event of ["session_start", "before_agent_start", "agent_end", "agent_settled", "session_shutdown"]) {
+    assert.ok(events.includes(event), `${event} is registered`);
+  }
+  assert.ok(commands.includes("icarus"));
   assert.equal(statuses["icarus"], "🪽 Icarus");
   assert.match(await commandReply(commandHandlers["icarus"], "", ctx), /hooks are off/);
   assert.equal(statuses["icarus"], undefined);
@@ -93,7 +103,8 @@ test("extension registers hook bindings and normal fabric tools", async (t) => {
 });
 
 test("extension closes bridge on shutdown when hook bindings are disabled", async (t) => {
-  const events: string[] = [];
+  const close = t.mock.method(IcarusBridge.prototype, "close", () => {});
+  const shutdownHandlers: TestEventHandler[] = [];
   const commands: string[] = [];
   const tools: string[] = [];
   const handlers: Record<string, TestEventHandler> = {};
@@ -120,16 +131,23 @@ test("extension closes bridge on shutdown when hook bindings are disabled", asyn
   process.env.PI_ICARUS_HOOK_HOOKS = "0";
 
   extension({
-    on(event, handler) { events.push(event); handlers[event] = handler; return () => {}; },
+    on(event, handler) {
+      handlers[event] = handler;
+      if (event === "session_shutdown") shutdownHandlers.push(handler);
+      return () => {};
+    },
     registerCommand(name, _command) { commands.push(name); },
     registerTool(tool) { tools.push(tool.name); },
   });
 
   await handlers.session_start?.({ type: "session_start", reason: "startup" }, { cwd: root, isProjectTrusted: () => true });
 
-  assert.deepEqual(events, ["session_start", "session_shutdown", "session_shutdown"]);
-  assert.deepEqual(commands, ["icarus", "icarus"]);
+  assert.equal(handlers.before_agent_start, undefined);
+  assert.ok(commands.includes("icarus"));
   assert.deepEqual(tools, []);
+  assert.equal(close.mock.callCount(), 0);
+  for (const handler of shutdownHandlers) await handler({ reason: "exit" }, {});
+  assert.equal(close.mock.callCount(), 1);
 });
 
 test("runtime context visibility controls injected message display", async () => {

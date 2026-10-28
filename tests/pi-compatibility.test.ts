@@ -5,6 +5,7 @@ import type { ExtensionFactory } from "@earendil-works/pi-coding-agent";
 import extension from "../src/index.js";
 import { bindHooks } from "../src/hooks.js";
 import { loadConfig } from "../src/config.js";
+import type { PiContext } from "../src/types.js";
 
 // Compile the public factory against the real host contract, not the test doubles.
 const factory: ExtensionFactory = extension;
@@ -81,4 +82,41 @@ test("real Pi dispatch recalls user context and captures only successful final s
   }
   assert.equal(closed, 1);
   assert.deepEqual(errors, []);
+});
+
+test("real Pi dispatch persists classifier audit outside model context", async () => {
+  const runtime = createExtensionRuntime();
+  const manager = SessionManager.inMemory(process.cwd());
+  runtime.appendEntry = (customType: string, data: unknown) => manager.appendCustomEntry(customType, data);
+  const bridge = { async hook() { return { context: "useful context\n\nrejected private context" }; }, close() {} };
+  const loaded = await loadExtensionFromFactory(
+    (pi: Parameters<ExtensionFactory>[0]) => { bindHooks(pi, bridge as never, { ...loadConfig(), classifier: "default" }); },
+    process.cwd(), createEventBus(), runtime, "icarus-filter",
+  );
+  type Registry = NonNullable<PiContext["modelRegistry"]>;
+  const registry = {
+    async getAvailableOfType() { return [{ provider: "test", id: "classifier", api: "typesafe-system-one", baseUrl: "http://localhost", input: ["text"] }]; },
+    async classify(_model: unknown, request: Parameters<Registry["classify"]>[1]) {
+      return { stopReason: "stop", answers: Object.fromEntries(Object.keys(request.questions).map((id, index) => [id,
+        { type: "choice", choice: index ? "drop" : "keep", probabilities: { keep: index ? 0 : 1, drop: index ? 1 : 0 }, confidence: 1 }])) };
+    },
+  };
+  const runner = new ExtensionRunner([loaded], runtime, process.cwd(), manager, registry);
+  try {
+    const result = await runner.emitBeforeAgentStart(
+      { messageType: "user", prompt: "request", images: undefined },
+      { cwd: process.cwd(), sections: {} },
+    );
+    assert.equal(result.messages[0].content, "useful context\n\n");
+    const entries = manager.getEntries().filter((entry: { type: string }) => entry.type === "custom");
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0].customType, "icarus-context-filter");
+    assert.equal(entries[0].data.decisions.length, 2);
+    assert.equal(entries[0].data.injectedIds.length, 1);
+    assert.ok(!JSON.stringify(entries).includes("rejected private context"));
+    assert.deepEqual(manager.buildSessionContext().messages, [], "audit custom entries never enter model context");
+  } finally {
+    await emitSessionShutdownEvent(runner, { type: "session_shutdown", reason: "exit" });
+    runner.invalidate();
+  }
 });

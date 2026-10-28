@@ -53,6 +53,16 @@ export const CONFIG_SCHEMA = {
       aliases: ["callTimeoutMs"],
       description: "Timeout in milliseconds for each call into the persistent Icarus worker.",
     },
+    classifier: {
+      type: "string",
+      default: "default",
+      description: "Automatic context filter: none disables; default prefers loopback-local classifiers, then lowest catalog input+output price, then native classifiers over chat adapters, then registry order; provider/model-id selects exactly. Remote selections send prompt/context to that provider.",
+    },
+    classifierTimeoutMs: {
+      type: "number",
+      default: 5000,
+      description: "Total classifier discovery/request deadline in milliseconds; failure preserves original context.",
+    },
     contextDisplay: {
       type: "boolean",
       default: true,
@@ -104,6 +114,8 @@ export function configSnippet(config: PiBridgeConfig): Record<string, unknown> {
       tools: config.registerTools,
       adminTools: config.registerAdminTools,
       timeoutMs: config.callTimeoutMs,
+      classifier: config.classifier ?? "default",
+      classifierTimeoutMs: config.classifierTimeoutMs ?? 5000,
       contextDisplay: config.hiddenDisplay,
       footerStatus: config.footerStatus,
     },
@@ -129,6 +141,8 @@ export function configInspection(config: PiBridgeConfig): Record<string, unknown
       contextDisplay: config.hiddenDisplay,
       footerStatus: config.footerStatus,
       timeoutMs: config.callTimeoutMs,
+      classifier: config.classifier ?? "default",
+      classifierTimeoutMs: config.classifierTimeoutMs ?? 5000,
     },
     settingsSnippet: configSnippet(config),
     note: "Pi behavior keys belong in Pi settings; runtime paths and identity can still come from environment variables.",
@@ -205,7 +219,7 @@ function isValidCommand(parts: string[]): boolean {
   return parts.length === 2 && (subcommand === "status" || subcommand === "toggle" || parseVisibility(subcommand) !== undefined);
 }
 
-async function contextDefaultMessage(parts: string[], config: PiBridgeConfig, hookControl: IcarusHookControl, ctx: unknown): Promise<string | undefined> {
+async function contextDefaultMessage(parts: string[], hookControl: IcarusHookControl, ctx: unknown): Promise<string | undefined> {
   const cwd = cwdFromContext(ctx);
   const action = parts[2] || "status";
   const requestedScope = parseScope(parts[3]) ?? parseScope(action);
@@ -217,7 +231,7 @@ async function contextDefaultMessage(parts: string[], config: PiBridgeConfig, ho
     ? inspectBooleanPackageSetting("contextDisplay", CONFIG_SCHEMA.settings.contextDisplay.default, cwd)
     : inspectBooleanPackageSettingScope("global", "contextDisplay", CONFIG_SCHEMA.settings.contextDisplay.default, cwd);
 
-  if (action === "" || action === "status" || requestedScope && parts.length === 3) {
+  if (action === "status" || requestedScope && parts.length === 3) {
     const setting = requestedScope
       ? await inspectBooleanPackageSettingScope(requestedScope, "contextDisplay", CONFIG_SCHEMA.settings.contextDisplay.default, cwd)
       : await inspectEffective();
@@ -271,7 +285,7 @@ export function registerConfigIntrospection(pi: PiApi, config: PiBridgeConfig, r
         }
 
         const message = parts[1] === "default"
-          ? await contextDefaultMessage(parts, config, hookControl, ctx)
+          ? await contextDefaultMessage(parts, hookControl, ctx)
           : handleContextVisibility(parts[1] || "", hookControl);
         if (message) {
           notify(ctx, message, "info");
