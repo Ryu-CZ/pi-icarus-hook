@@ -12,6 +12,7 @@
     "dist/src",
     "src",
     "README.md",
+    "VISION.md",
     "CHANGELOG.md",
     "docs/kev-memory-filter.md"
   ],
