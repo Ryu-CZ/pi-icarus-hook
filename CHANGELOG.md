@@ -11,29 +11,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Automatic filtering removes clearly unrelated memory text before Pi answers. Stored memories stay unchanged.
-- Session records show filtering decisions and classifier usage without including memory text. Usage is tracked separately from Pi's main-model totals.
+- A classifier model decides which memory text to leave out before Pi answers. Stored memories stay unchanged.
+- Session records show filtering decisions and separate classifier usage totals, without logging memory text.
 
 ### Changed
 
-- Simplified the README for everyday use; moved technical guidance to [VISION.md](VISION.md).
-- Filtering defaults to `classifier: "default"`, preferring local models. **Remote fallback can share your prompt and memory text and incur charges.**
-- Select an exact local `provider/model-id` to prevent remote fallback, or `classifier: "none"` to disable filtering. Reload Pi after changes.
-- Uncertain or unclassified text stays. Errors, timeouts, or unavailable classifiers preserve the original context; the default deadline is five seconds.
-- Startup context, facts sections, unknown bracketed sections, and explicit tool results bypass filtering.
-- Filtering can make mistakes; Icarus may not offer discarded text again later.
+- Shortened the README; moved technical guidance to [VISION.md](VISION.md).
+- Filtering prefers local models by default (`classifier: "default"`). **Remote fallback may share prompts and memory text and incur charges.**
+- Choose an exact local `provider/model-id` to block remote fallback, or `classifier: "none"` to disable filtering. Reload Pi afterward.
+- Filtering keeps uncertain or unclassified text and preserves all context on failure or timeout (five seconds by default).
+- Filtering skips startup context, facts, unknown bracketed sections, and explicit tool results.
+- Filtering can discard useful text; Icarus may not offer it again later.
 
 ## [0.6.0] - 2026-10-22
 
 ### Fixed
 
-- `/icarus off` blocks pending memory injection and capture, even after turning it back on. Already-submitted backend work may finish.
-- Cancelling a Fabric action also stops queued actions. A write already running may finish; restart the session to reinitialize memory.
+- `/icarus off` cancels pending memory recall and capture, even if re-enabled. Work already sent to Icarus may finish.
+- Cancelling a Fabric action stops queued actions; running writes may finish. Restart the session to restore memory.
 - Prevented duplicate memory initialization in the same conversation.
 - Saving context defaults preserves concurrent changes from other Pi windows.
 - Invalid settings files are no longer overwritten. Repair the JSON before saving defaults.
-- Default visibility toggles now respect the requested scope and report where the setting was saved.
-- Backend crashes no longer break Pi or replay failed actions. Restart the session to reinitialize memory.
+- Visibility defaults now apply to the requested scope and show where they were saved.
+- Icarus crashes no longer break Pi or replay failed actions. Restart the session to restore memory.
 - Restored compatibility with Pi 1.4.0.
 
 ### Security
@@ -46,8 +46,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Restored conversation memory support for Pi 1.3.0.
-- Memory is saved only after Pi finishes successfully—not during retries or after cancelled, failed, or truncated answers.
-- Retried answers retain the original request and queued follow-up messages for memory capture.
+- Memory is saved only after successful answers—not retries, cancellations, failures, or truncated answers.
+- Memory capture preserves the original request and queued follow-ups when Pi retries.
 - Automated extension messages no longer trigger memory recall or capture.
 
 ## [0.5.3] - 2026-10-02
@@ -71,7 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Clearer `fabric_write` guidance tells agents to claim verification only with evidence and identify the tool used.
+- `fabric_write` guidance now requires evidence and the tool used for verification.
 
 ### Fixed
 
@@ -93,7 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Renamed `/icarus-hook` to `/icarus`.
-- Memory messages are now visible by default. Use `/icarus context` for this session or `/icarus context default ...` for future sessions.
+- Memory messages are visible by default. Change visibility with `/icarus context` (this session) or `/icarus context default ...` (future sessions).
 
 ## [0.4.1] - 2026-06-17
 
