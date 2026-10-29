@@ -63,8 +63,6 @@ Use `project` instead of `global` to save a visibility default just for a truste
 
 ## Keep only useful context
 
-> **Availability:** classifier filtering is in the current source, but is not included in the published `0.6.0` release. See the [changelog](CHANGELOG.md).
-
 The optional classifier automatically removes text it confidently judges irrelevant
 before memory reaches Pi. Uncertain text stays; if classification fails, the original
 context is kept. Startup context is left alone.

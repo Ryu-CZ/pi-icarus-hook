@@ -7,19 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-29
+
 ### Added
 
-- Automatic filtering removes clearly unrelated memory text before Pi answers. Stored memories stay unchanged.
-- Session records show filtering decisions and classifier usage without including memory text. Usage is tracked separately from Pi's main-model totals.
+- Automatically filters clearly unrelated memory text before Pi answers. Stored memories stay unchanged.
+- Session records show filtering decisions and classifier usage without memory text.
 
 ### Changed
 
 - Simplified the README for everyday use; moved technical guidance to [VISION.md](VISION.md).
-- Filtering defaults to `classifier: "default"`, preferring local models. **Remote fallback can share your prompt and memory text and incur charges.**
-- Select an exact local `provider/model-id` to prevent remote fallback, or `classifier: "none"` to disable filtering. Reload Pi after changes.
-- Uncertain or unclassified text stays. Errors, timeouts, or unavailable classifiers preserve the original context; the default deadline is five seconds.
-- Startup context, facts sections, unknown bracketed sections, and explicit tool results bypass filtering.
-- Filtering can make mistakes; Icarus may not offer discarded text again later.
+- Filtering is on by default and prefers local classifiers. Remote fallback may share prompts and memory text with a provider and incur charges.
+- Choose an exact local `provider/model-id` to prevent remote fallback, or set `classifier: "none"` to disable filtering.
+- Uncertain text stays; errors, timeouts, or unavailable classifiers preserve the original context. Startup context, facts, unknown sections, and explicit tool results bypass filtering.
+- Relevance filtering can make mistakes; Icarus may not offer discarded text again later.
 
 ## [0.6.0] - 2026-10-22
 
@@ -134,7 +135,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added settings for Icarus, Python, memory storage, agent identity, and project.
 - Kept Icarus session memory available throughout each Pi conversation.
 
-[Unreleased]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.5.4...v0.6.0
 [0.5.4]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.5.2...v0.5.3
