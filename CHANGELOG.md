@@ -11,16 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Automatically filters clearly unrelated memory text before Pi answers. Stored memories stay unchanged.
-- Session records show filtering decisions and classifier usage without memory text.
+- Automatic filtering removes clearly unrelated memory text before Pi answers. Stored memories stay unchanged.
+- Session records show filtering decisions and classifier usage without including memory text. Usage is tracked separately from Pi's main-model totals.
 
 ### Changed
 
 - Simplified the README for everyday use; moved technical guidance to [VISION.md](VISION.md).
-- Filtering is on by default and prefers local classifiers. Remote fallback may share prompts and memory text with a provider and incur charges.
-- Choose an exact local `provider/model-id` to prevent remote fallback, or set `classifier: "none"` to disable filtering.
-- Uncertain text stays; errors, timeouts, or unavailable classifiers preserve the original context. Startup context, facts, unknown sections, and explicit tool results bypass filtering.
-- Relevance filtering can make mistakes; Icarus may not offer discarded text again later.
+- Filtering defaults to `classifier: "default"`, preferring local models. **Remote fallback can share your prompt and memory text and incur charges.**
+- Select an exact local `provider/model-id` to prevent remote fallback, or `classifier: "none"` to disable filtering. Reload Pi after changes.
+- Uncertain or unclassified text stays. Errors, timeouts, or unavailable classifiers preserve the original context; the default deadline is five seconds.
+- Startup context, facts sections, unknown bracketed sections, and explicit tool results bypass filtering.
+- Filtering can make mistakes; Icarus may not offer discarded text again later.
 
 ## [0.6.0] - 2026-10-22
 
