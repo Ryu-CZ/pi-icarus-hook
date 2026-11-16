@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-16
+
 ### Changed
 
 - Verified compatibility with Pi 1.5.0; no extension behavior changes required.
@@ -140,7 +142,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added settings for Icarus, Python, memory storage, agent identity, and project.
 - Kept Icarus session memory available throughout each Pi conversation.
 
-[Unreleased]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.5.4...v0.6.0
 [0.5.4]: https://github.com/Ryu-CZ/pi-icarus-hook/compare/v0.5.3...v0.5.4
