@@ -1,6 +1,6 @@
 {
   "name": "pi-icarus-hook",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "private": false,
   "description": "Thin Pi lifecycle bridge to local Hermes/Icarus Memory OS hooks and tools",
   "license": "MIT",
@@ -56,7 +56,7 @@
     "image": "https://raw.githubusercontent.com/Ryu-CZ/pi-icarus-hook/main/media/banner.webp"
   },
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": "1.5.0",
+    "@earendil-works/pi-coding-agent": "1.6.0",
     "@types/node": "^22.0.0",
     "@types/proper-lockfile": "4.1.4",
     "typescript": "^5.8.0"
